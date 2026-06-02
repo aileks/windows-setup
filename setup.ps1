@@ -35,7 +35,4 @@ foreach ($step in $steps) {
     }
 }
 
-Write-Log "Setup complete. Run CTT's WinUtil next for deeper tweaks." "SUCCESS"
-Write-Log "Manual actions:" "INFO"
-Write-Log "  - Install CommitMono Nerd Font (your custom build)" "INFO"
-Write-Log "  - Install Power BI from powerbi.microsoft.com" "INFO"
+Write-Log "Setup complete." "SUCCESS"
