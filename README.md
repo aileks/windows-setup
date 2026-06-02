@@ -1,3 +1,41 @@
-# Windows Setup
+# win-setup
 
-Powershell script for the ideal Windows 11 setup (24H2 or later).
+Guided PowerShell setup script for a fresh Windows 11 24H2+ install.
+
+## What it does
+
+- Enables WSL2 + Virtual Machine Platform
+- Enables symlinks, long paths, developer mode
+- Installs apps via winget
+- Installs Arch Linux on WSL with mirrored networking
+- Applies Explorer power-user tweaks
+- Applies mild privacy hardening
+- Activates Ultimate Performance power plan
+- Deploys komorebi config with workspace rules and auto-start
+- Deploys nushell config with vi mode, fuzzy completions, aliases
+- Deploys color scheme for Windows Terminal
+- Interactive git setup 
+
+## Usage
+
+```powershell
+Set-ExecutionPolicy Bypass -Scope Process
+.\setup.ps1
+```
+
+> ![NOTE]  
+> The script will prompt for elevation if not running as admin. If WSL features require a reboot, the script registers a RunOnce entry and resumes automatically after restart.
+
+## Config locations
+
+| Config | Destination |
+|---|---|
+| komorebi.json | `~\komorebi.json` |
+| whkdrc | `~\.config\whkdrc` |
+| starship.toml | `~\.config\starship.toml` |
+| nushell env.nu | `%APPDATA%\nushell\env.nu` |
+| nushell config.nu | `%APPDATA%\nushell\config.nu` |
+| .wslconfig | `~\.wslconfig` |
+| wsl.conf | `/etc/wsl.conf` (inside Arch) |
+| Windows Terminal | merged into `%LOCALAPPDATA%\Packages\Microsoft.WindowsTerminal_8wekyb3d8bbwe\LocalState\settings.json` |
+
