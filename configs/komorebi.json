@@ -17,46 +17,31 @@
       "workspaces": [
         {
           "name": "I",
-          "layout": "BSP",
-          "initial_workspace_rules": [
-            { "kind": "Exe", "id": "zen.exe" }
-          ]
+          "layout": "BSP"
         },
         {
           "name": "II",
-          "layout": "BSP",
-          "initial_workspace_rules": [
-            { "kind": "Exe", "id": "zed.exe" }
-          ]
+          "layout": "BSP"
         },
         {
           "name": "III",
-          "layout": "BSP",
-          "initial_workspace_rules": [
-            { "kind": "Exe", "id": "WindowsTerminal.exe" }
-          ]
+          "layout": "BSP"
         },
         {
           "name": "IV",
-          "layout": "VerticalStack",
-          "initial_workspace_rules": [
-            { "kind": "Exe", "id": "Signal.exe" }
-          ]
+          "layout": "BSP"
         },
         {
           "name": "V",
-          "layout": "HorizontalStack",
-          "initial_workspace_rules": [
-            { "kind": "Exe", "id": "vlc.exe" }
-          ]
+          "layout": "BSP"
         },
         {
           "name": "VI",
-          "layout": "UltrawideVerticalStack"
+          "layout": "BSP"
         },
         {
           "name": "VII",
-          "layout": "RightMainVerticalStack"
+          "layout": "BSP"
         }
       ]
     }
