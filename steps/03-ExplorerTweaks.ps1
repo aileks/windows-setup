@@ -1,5 +1,5 @@
 function Step-ExplorerTweaks {
-    if (Test-StateCompleted "030-ExplorerTweaks") { return }
+    if (Test-StateCompleted "03-ExplorerTweaks") { return }
     Write-Log "Applying Explorer power-user tweaks..." "INFO"
 
     Set-RegistryBatch @{
@@ -31,7 +31,7 @@ function Step-ExplorerTweaks {
     $ns3d = "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\MyComputer\NameSpace\{0DB7E03F-FC29-4DC6-9020-FF41B59E513A}"
     Remove-RegistryKey $ns3d
 
-    Set-StateCompleted "030-ExplorerTweaks"
+    Set-StateCompleted "03-ExplorerTweaks"
     Write-Log "Explorer configured" "SUCCESS"
 }
 Step-ExplorerTweaks

@@ -1,5 +1,5 @@
 function Step-WslFeatures {
-    if (Test-StateCompleted "010-WslFeatures") { return }
+    if (Test-StateCompleted "01-WslFeatures") { return }
     Write-Log "Enabling WSL and Virtual Machine Platform..." "INFO"
 
     $needsReboot = $false
@@ -11,7 +11,7 @@ function Step-WslFeatures {
         }
     }
 
-    Set-StateCompleted "010-WslFeatures"
+    Set-StateCompleted "01-WslFeatures"
 
     if ($needsReboot) {
         Register-ResumeAfterReboot $PSCommandPath

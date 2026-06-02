@@ -1,5 +1,5 @@
 function Step-PowerPlan {
-    if (Test-StateCompleted "050-PowerPlan") { return }
+    if (Test-StateCompleted "05-PowerPlan") { return }
     Write-Log "Enabling Ultimate Performance power plan..." "INFO"
 
     $existing = powercfg /list | Select-String "Ultimate Performance"
@@ -16,6 +16,6 @@ function Step-PowerPlan {
         Write-Log "Could not activate Ultimate Performance plan" "WARN"
     }
 
-    Set-StateCompleted "050-PowerPlan"
+    Set-StateCompleted "05-PowerPlan"
 }
 Step-PowerPlan

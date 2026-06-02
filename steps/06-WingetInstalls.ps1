@@ -1,5 +1,5 @@
 function Step-WingetInstalls {
-    if (Test-StateCompleted "060-WingetInstalls") { return }
+    if (Test-StateCompleted "06-WingetInstalls") { return }
     Write-Log "Installing packages via winget..." "INFO"
 
     $packages = @(
@@ -45,6 +45,6 @@ function Step-WingetInstalls {
     }
 
     Write-Log "winget: $installed installed, $skipped already present, $failed failed" "SUCCESS"
-    Set-StateCompleted "060-WingetInstalls"
+    Set-StateCompleted "06-WingetInstalls"
 }
 Step-WingetInstalls
