@@ -1,5 +1,4 @@
 function Step-KomorebiSetup {
-    if (Test-StateCompleted "09-KomorebiSetup") { return }
     Write-Log "Setting up komorebi..." "INFO"
 
     $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
@@ -25,7 +24,6 @@ function Step-KomorebiSetup {
     komorebic enable-autostart --whkd 2>&1 | Write-Host
     Write-Log "  Enabled autostart (komorebi.lnk in shell:startup, starts komorebi + whkd)" "INFO"
 
-    Set-StateCompleted "09-KomorebiSetup"
     Write-Log "Komorebi configured. It starts with whkd at next sign-in." "SUCCESS"
     Write-Log "  To start now without signing out, run in a normal (non-admin) terminal: komorebic start --whkd" "INFO"
 }

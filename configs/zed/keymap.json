@@ -1,0 +1,95 @@
+[
+  // Leader bindings — normal + visual
+  {
+    "context": "Editor && (vim_mode == normal || vim_mode == visual) && !VimWaiting",
+    "bindings": {
+      "space w": "workspace::Save",
+      "space W": "workspace::SaveAll",
+      "space f": "file_finder::Toggle",
+      "space d": "diagnostics::Deploy",
+      "space e": "project_panel::ToggleFocus",
+      "space r": "editor::Rename",
+      "space b": "git::Blame",
+      "space q": "pane::CloseActiveItem",
+      "space i h": "editor::ToggleInlayHints",
+
+      "space g a": "git::StageAll",
+      "space g c": "git::Commit",
+      "space g A": "git::Amend",
+      "space g m": "git::GenerateCommitMessage",
+      "space g p": "git::Push",
+      "space g l": "git::Pull",
+      "space g d": "editor::ToggleSelectedDiffHunks",
+      "space g b": "git::Switch",
+      "space g s": "git::StashAll",
+      "space g t": "git::StashPop",
+      "space g o": "git::OpenModifiedFiles",
+      "space g h": "git::StageAndNext",
+      "space g H": "git::UnstageAndNext",
+
+      "shift-y": ["workspace::SendKeystrokes", "y $"],
+      "L": "pane::ActivateNextItem",
+      "H": "pane::ActivatePreviousItem"
+    }
+  },
+
+  // Normal-only — visual-line j/k + centered scroll
+  {
+    "context": "Editor && vim_mode == normal && !VimWaiting",
+    "bindings": {
+      "j": ["workspace::SendKeystrokes", "g j"],
+      "k": ["workspace::SendKeystrokes", "g k"],
+      "ctrl-d": ["workspace::SendKeystrokes", "ctrl-d z z"],
+      "ctrl-u": ["workspace::SendKeystrokes", "ctrl-u z z"]
+    }
+  },
+
+  // Visual-only
+  {
+    "context": "Editor && vim_mode == visual && !VimWaiting",
+    "bindings": {
+      "g c": "editor::ToggleComments",
+      ">": "editor::Tab",
+      "<": "editor::Backtab"
+    }
+  },
+
+  // Pane navigation
+  {
+    "context": "(Dock || Terminal || Editor) && !VimWaiting",
+    "bindings": {
+      "ctrl-h": "workspace::ActivatePaneLeft",
+      "ctrl-l": "workspace::ActivatePaneRight",
+      "ctrl-k": "workspace::ActivatePaneUp",
+      "ctrl-j": "workspace::ActivatePaneDown"
+    }
+  },
+
+  // Subword motion
+  {
+    "context": "VimControl && !menu && vim_mode != operator",
+    "bindings": {
+      "w": "vim::NextSubwordStart",
+      "b": "vim::PreviousSubwordStart",
+      "e": "vim::NextSubwordEnd",
+      "g e": "vim::PreviousSubwordEnd"
+    }
+  },
+
+  // Empty pane / startup
+  {
+    "context": "EmptyPane",
+    "bindings": {
+      "space space": "file_finder::Toggle",
+      "space p": "projects::OpenRecent"
+    }
+  },
+
+  // Project panel
+  {
+    "context": "ProjectPanel && not_editing",
+    "bindings": {
+      "q": "project_panel::ToggleFocus"
+    }
+  }
+]

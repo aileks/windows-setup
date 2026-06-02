@@ -1,5 +1,4 @@
 function Step-ConfigDeploy {
-    if (Test-StateCompleted "10-ConfigDeploy") { return }
     Write-Log "Deploying config files..." "INFO"
 
     $nushellDir = "$env:APPDATA\nushell"
@@ -7,6 +6,12 @@ function Step-ConfigDeploy {
     Copy-Item "$script:RootDir/configs/nushell/env.nu" "$nushellDir\env.nu" -Force
     Copy-Item "$script:RootDir/configs/nushell/config.nu" "$nushellDir\config.nu" -Force
     Write-Log "  Deployed nushell config" "INFO"
+
+    $zedDir = "$env:APPDATA\Zed"
+    if (-not (Test-Path $zedDir)) { New-Item -Path $zedDir -ItemType Directory -Force | Out-Null }
+    Copy-Item "$script:RootDir/configs/zed/settings.json" "$zedDir\settings.json" -Force
+    Copy-Item "$script:RootDir/configs/zed/keymap.json" "$zedDir\keymap.json" -Force
+    Write-Log "  Deployed Zed config" "INFO"
 
     $termPkgDir = "$env:LOCALAPPDATA\Packages\Microsoft.WindowsTerminal_8wekyb3d8bbwe"
     $termDir = "$termPkgDir\LocalState"
@@ -31,7 +36,7 @@ function Step-ConfigDeploy {
         $defaults | Add-Member -NotePropertyName "colorScheme" -NotePropertyValue "Ashen" -Force
         $defaults | Add-Member -NotePropertyName "useAcrylic" -NotePropertyValue $true -Force
         $defaults | Add-Member -NotePropertyName "opacity" -NotePropertyValue 92 -Force
-        $defaults | Add-Member -NotePropertyName "font" -NotePropertyValue @{ face = "CommitMono Nerd Font"; size = 11 } -Force
+        $defaults | Add-Member -NotePropertyName "font" -NotePropertyValue @{ face = "CommitMono Nerd Font Mono"; size = 11 } -Force
         $defaults | Add-Member -NotePropertyName "padding" -NotePropertyValue "12" -Force
         $defaults | Add-Member -NotePropertyName "cursorShape" -NotePropertyValue "bar" -Force
 
@@ -45,7 +50,6 @@ function Step-ConfigDeploy {
         Write-Log "  Windows Terminal not installed, skipping Terminal config" "WARN"
     }
 
-    Set-StateCompleted "10-ConfigDeploy"
     Write-Log "Config files deployed" "SUCCESS"
 }
 Step-ConfigDeploy
