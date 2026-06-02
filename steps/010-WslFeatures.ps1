@@ -1,0 +1,25 @@
+function Step-WslFeatures {
+    if (Test-StateCompleted "010-WslFeatures") { return }
+    Write-Log "Enabling WSL and Virtual Machine Platform..." "INFO"
+
+    $needsReboot = $false
+    foreach ($feature in @("Microsoft-Windows-Subsystem-Linux", "VirtualMachinePlatform")) {
+        $state = (Get-WindowsOptionalFeature -Online -FeatureName $feature).State
+        if ($state -ne "Enabled") {
+            $result = Enable-WindowsOptionalFeature -Online -FeatureName $feature -NoRestart
+            if ($result.RestartNeeded) { $needsReboot = $true }
+        }
+    }
+
+    Set-StateCompleted "010-WslFeatures"
+
+    if ($needsReboot) {
+        Register-ResumeAfterReboot $PSCommandPath
+        Write-Log "Reboot required to finish enabling WSL features." "WARN"
+        if (Ask-YesNo "Reboot now?" $true) {
+            Restart-Computer
+        }
+        exit 0
+    }
+}
+Step-WslFeatures
