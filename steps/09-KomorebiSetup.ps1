@@ -2,6 +2,8 @@ function Step-KomorebiSetup {
     if (Test-StateCompleted "09-KomorebiSetup") { return }
     Write-Log "Setting up komorebi..." "INFO"
 
+    $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
+
     $komorebiConfig = "$env:USERPROFILE\komorebi.json"
     $whkdConfig = "$env:USERPROFILE\.config\whkdrc"
 
@@ -11,6 +13,11 @@ function Step-KomorebiSetup {
     }
     Copy-Item "$script:RootDir/configs/whkdrc" $whkdConfig -Force
     Write-Log "  Deployed komorebi.json and whkdrc" "INFO"
+
+    if (-not (Get-Command komorebic -ErrorAction SilentlyContinue)) {
+        Write-Log "  komorebic not found, skipping fetch-asc and autostart task" "WARN"
+        return
+    }
 
     komorebic fetch-asc 2>&1 | Out-Null
     Write-Log "  Fetched application-specific configs" "INFO"

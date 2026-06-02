@@ -7,13 +7,17 @@ function Set-RegistrySafe {
         [string]$Type = "DWord"
     )
 
-    if (-not (Test-Path $Path)) {
-        New-Item -Path $Path -Force | Out-Null
-    }
+    try {
+        if (-not (Test-Path $Path)) {
+            New-Item -Path $Path -Force | Out-Null
+        }
 
-    $existing = Get-ItemProperty -Path $Path -Name $Name -ErrorAction SilentlyContinue
-    if ($null -eq $existing -or $existing.$Name -ne $Value) {
-        Set-ItemProperty -Path $Path -Name $Name -Value $Value -Type $Type -Force
+        $existing = Get-ItemProperty -Path $Path -Name $Name -ErrorAction SilentlyContinue
+        if ($null -eq $existing -or $existing.$Name -ne $Value) {
+            Set-ItemProperty -Path $Path -Name $Name -Value $Value -Type $Type -Force
+        }
+    } catch {
+        Write-Log "  Failed to set registry: ${Path}\${Name} - $($_.Exception.Message)" "WARN"
     }
 }
 
@@ -31,15 +35,23 @@ function Set-RegistryBatch {
     )
 
     $count = 0
+    $failed = 0
     foreach ($path in $Tweaks.Keys) {
         $props = $Tweaks[$path]
         foreach ($name in $props.Keys) {
             $entry = $props[$name]
             $value = $entry.Value
             $type = if ($entry.ContainsKey("Type")) { $entry.Type } else { "DWord" }
-            Set-RegistrySafe -Path $path -Name $name -Value $value -Type $type
-            $count++
+            try {
+                Set-RegistrySafe -Path $path -Name $name -Value $value -Type $type
+                $count++
+            } catch {
+                $failed++
+                Write-Log "  Failed: ${Path}\${Name} - $($_.Exception.Message)" "WARN"
+            }
         }
     }
-    Write-Log "Applied $count registry values" "SUCCESS"
+    $msg = "Applied $count registry values"
+    if ($failed -gt 0) { $msg += " ($failed failed)" }
+    Write-Log $msg "SUCCESS"
 }

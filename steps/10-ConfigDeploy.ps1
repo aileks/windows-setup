@@ -8,7 +8,8 @@ function Step-ConfigDeploy {
     Copy-Item "$script:RootDir/configs/nushell/config.nu" "$nushellDir\config.nu" -Force
     Write-Log "  Deployed nushell config" "INFO"
 
-    $termDir = "$env:LOCALAPPDATA\Packages\Microsoft.WindowsTerminal_8wekyb3d8bbwe\LocalState"
+    $termPkgDir = "$env:LOCALAPPDATA\Packages\Microsoft.WindowsTerminal_8wekyb3d8bbwe"
+    $termDir = "$termPkgDir\LocalState"
     $termSettingsPath = "$termDir\settings.json"
 
     if (Test-Path $termSettingsPath) {
@@ -36,9 +37,12 @@ function Step-ConfigDeploy {
 
         $settings | ConvertTo-Json -Depth 20 | Set-Content $termSettingsPath -Encoding UTF8
         Write-Log "  Merged Ashen theme into Windows Terminal" "INFO"
-    } else {
+    } elseif (Test-Path $termPkgDir) {
+        if (-not (Test-Path $termDir)) { New-Item -Path $termDir -ItemType Directory -Force | Out-Null }
         Copy-Item "$script:RootDir/configs/WindowsTerminal-settings.json" $termSettingsPath -Force
         Write-Log "  Deployed Windows Terminal settings (fresh)" "INFO"
+    } else {
+        Write-Log "  Windows Terminal not installed, skipping Terminal config" "WARN"
     }
 
     Set-StateCompleted "10-ConfigDeploy"

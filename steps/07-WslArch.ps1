@@ -2,6 +2,9 @@ function Step-WslArch {
     if (Test-StateCompleted "07-WslArch") { return }
     Write-Log "Setting up WSL with Arch Linux..." "INFO"
 
+    Write-Log "  Updating WSL..." "INFO"
+    wsl --update 2>&1 | Write-Host
+
     wsl --set-default-version 2 2>&1 | Out-Null
 
     $distros = wsl --list --quiet 2>$null

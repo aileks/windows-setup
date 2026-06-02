@@ -26,7 +26,7 @@ function Ask-Input {
         Write-Host "($Default)" -NoNewline -ForegroundColor DarkGray
         Write-Host ": " -NoNewline
     } else {
-        Write-Host "$Question: " -NoNewline -ForegroundColor White
+        Write-Host "${Question}: " -NoNewline -ForegroundColor White
     }
     $reply = Read-Host
 

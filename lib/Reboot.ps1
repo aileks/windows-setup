@@ -3,7 +3,7 @@ function Register-ResumeAfterReboot {
 
     Set-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\RunOnce" `
         -Name "WinSetup_Resume" `
-        -Value "powershell.exe -ExecutionPolicy Bypass -NoProfile -File `"$ScriptPath`"" `
+        -Value "powershell.exe -NoExit -ExecutionPolicy Bypass -NoProfile -File `"$ScriptPath`"" `
         -Type String -Force
 
     Set-StateValue "resumeAfterReboot" $true

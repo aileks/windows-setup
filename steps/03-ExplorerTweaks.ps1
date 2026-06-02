@@ -9,7 +9,6 @@ function Step-ExplorerTweaks {
             "ShowSyncProviderNotifications" = @{ Value = 0 }
             "ShowRecentFiles"               = @{ Value = 0 }
             "ShowFrequentFiles"             = @{ Value = 0 }
-            "TaskbarDa"                     = @{ Value = 0 }
             "TaskbarAl"                     = @{ Value = 0 }
             "DisabledHotkeys"               = @{ Value = "hjklqmotpxynf1234567"; Type = "String" }
         }

@@ -2,13 +2,30 @@ function Step-WingetInstalls {
     if (Test-StateCompleted "06-WingetInstalls") { return }
     Write-Log "Installing packages via winget..." "INFO"
 
+    if (-not (Get-Command winget -ErrorAction SilentlyContinue)) {
+        Write-Log "  winget not found, installing via Microsoft.WinGet.Client..." "INFO"
+        try {
+            Install-PackageProvider -Name NuGet -Force | Out-Null
+            Install-Module -Name Microsoft.WinGet.Client -Force
+            Repair-WinGetPackageManager -AllUsers
+            $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
+        } catch {
+            Write-Log "  Failed to install winget: $($_.Exception.Message)" "ERROR"
+            return
+        }
+    }
+
+    if (-not (Get-Command winget -ErrorAction SilentlyContinue)) {
+        Write-Log "  winget still not found. Install winget manually and re-run." "ERROR"
+        return
+    }
+
     $packages = @(
         @{ Id = "Zen-Team.Zen-Browser";           Name = "Zen Browser" }
         @{ Id = "ZedIndustries.Zed";              Name = "Zed" }
         @{ Id = "Bitwarden.Bitwarden";            Name = "Bitwarden" }
         @{ Id = "OpenWhisperSystems.Signal";      Name = "Signal" }
         @{ Id = "VideoLAN.VLC";                   Name = "VLC" }
-        @{ Id = "Nomacs.Nomacs";                  Name = "Nomacs" }
         @{ Id = "Nushell.Nushell";                Name = "Nushell" }
         @{ Id = "LGUG2Z.komorebi";               Name = "Komorebi" }
         @{ Id = "LGUG2Z.whkd";                   Name = "whkd" }
@@ -42,6 +59,8 @@ function Step-WingetInstalls {
             Write-Log "  Failed to install $($pkg.Name): $result" "WARN"
         }
     }
+
+    $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
 
     Write-Log "winget: $installed installed, $skipped already present, $failed failed" "SUCCESS"
     Set-StateCompleted "06-WingetInstalls"

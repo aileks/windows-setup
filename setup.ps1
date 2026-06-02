@@ -3,7 +3,7 @@ param()
 $ErrorActionPreference = "Stop"
 
 if (-not ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
-    $elevateArgs = "-ExecutionPolicy Bypass -NoProfile -File `"$PSCommandPath`""
+    $elevateArgs = "-NoExit -ExecutionPolicy Bypass -NoProfile -File `"$PSCommandPath`""
     Start-Process -FilePath "powershell.exe" -ArgumentList $elevateArgs -Verb RunAs
     exit 0
 }
