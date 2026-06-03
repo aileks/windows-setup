@@ -1,23 +1,14 @@
 {
   "$schema": "https://aka.ms/winget-packages.schema.2.0.json",
-  "CreationDate": "2026-06-02T15:56:02.054-00:00",
+  "CreationDate": "2026-06-02T21:28:21.104-00:00",
   "Sources": [
     {
       "Packages": [
         {
+          "PackageIdentifier": "7zip.7zip"
+        },
+        {
           "PackageIdentifier": "VideoLAN.VLC"
-        },
-        {
-          "PackageIdentifier": "Git.Git"
-        },
-        {
-          "PackageIdentifier": "OpenJS.NodeJS.LTS"
-        },
-        {
-          "PackageIdentifier": "AutoHotkey.AutoHotkey"
-        },
-        {
-          "PackageIdentifier": "ZedIndustries.Zed"
         },
         {
           "PackageIdentifier": "Zen-Team.Zen-Browser"
@@ -26,13 +17,16 @@
           "PackageIdentifier": "LGUG2Z.komorebi"
         },
         {
-          "PackageIdentifier": "7zip.7zip"
-        },
-        {
           "PackageIdentifier": "Neovim.Neovim"
         },
         {
-          "PackageIdentifier": "AutoHotkey.AutoHotkey"
+          "PackageIdentifier": "LGUG2Z.masir"
+        },
+        {
+          "PackageIdentifier": "LGUG2Z.whkd"
+        },
+        {
+          "PackageIdentifier": "OpenJS.NodeJS.LTS"
         },
         {
           "PackageIdentifier": "Nushell.Nushell"
@@ -53,10 +47,10 @@
           "PackageIdentifier": "OpenWhisperSystems.Signal"
         },
         {
-          "PackageIdentifier": "GlennDelahoy.SnappyDriverInstallerOrigin"
+          "PackageIdentifier": "Voidstar.FilePilot"
         },
         {
-          "PackageIdentifier": "Voidstar.FilePilot"
+          "PackageIdentifier": "GlennDelahoy.SnappyDriverInstallerOrigin"
         },
         {
           "PackageIdentifier": "ajeetdsouza.zoxide"
@@ -80,18 +74,6 @@
           "PackageIdentifier": "Microsoft.PowerShell"
         },
         {
-          "PackageIdentifier": "Microsoft.UI.Xaml.2.8"
-        },
-        {
-          "PackageIdentifier": "Microsoft.VCLibs.Desktop.14"
-        },
-        {
-          "PackageIdentifier": "Microsoft.VCLibs.14"
-        },
-        {
-          "PackageIdentifier": "Microsoft.WindowsAppRuntime.1.8"
-        },
-        {
           "PackageIdentifier": "Microsoft.WindowsTerminal"
         }
       ],
@@ -100,6 +82,19 @@
         "Identifier": "Microsoft.Winget.Source_8wekyb3d8bbwe",
         "Name": "winget",
         "Type": "Microsoft.PreIndexed.Package"
+      }
+    },
+    {
+      "Packages": [
+        {
+          "PackageIdentifier": "9PFXXSHC64H3"
+        }
+      ],
+      "SourceDetails": {
+        "Argument": "https://storeedgefd.dsx.mp.microsoft.com/v9.0",
+        "Identifier": "StoreEdgeFD",
+        "Name": "msstore",
+        "Type": "Microsoft.Rest"
       }
     }
   ],

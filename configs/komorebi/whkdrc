@@ -1,21 +1,21 @@
-.shell pwsh
-.pause win + shift + /
+.shell cmd
+.pause win + shift + oem_2
 
-win + o : taskkill /f /im whkd.exe; Start-Process whkd -WindowStyle hidden
+win + o : taskkill /f /im whkd.exe; start /b whkd
 win + shift + o : komorebic reload-configuration
 
 win + q : komorebic close
 win + shift + m : komorebic minimize
 
-win + b : Start-Process "$Env:ProgramFiles\Zen Browser\zen.exe"
-win + s : Start-Process "$Env:LOCALAPPDATA\Programs\signal-desktop\Signal.exe"
-win + m : Start-Process "$Env:ProgramFiles\Fastmail\Fastmail.exe"
-win + t : Start-Process wt
+win + b : start /b "$Env:ProgramFiles\Zen Browser\zen.exe"
+win + s : start /b "$Env:LOCALAPPDATA\Programs\signal-desktop\Signal.exe"
+win + m : start /b "$Env:ProgramFiles\Fastmail\Fastmail.exe"
+win + t : start /b wt
 
-alt + h : komorebic focus
-alt + j : komorebic focus down
-alt + k : komorebic focus up
-alt + l : komorebic focus right
+win + h : komorebic focus left
+win + j : komorebic focus down
+win + k : komorebic focus up
+win + l : komorebic focus right
 
 win + shift + h : komorebic move left
 win + shift + j : komorebic move down
@@ -40,7 +40,7 @@ win + shift + oem_minus : komorebic resize-axis vertical decrease
 win + oem_7 : komorebic toggle-float
 win + shift + f : komorebic toggle-monocle
 win + shift + r : komorebic retile
-win + / : komorebic toggle-pause
+win + oem_2 : komorebic toggle-pause
 
 win + x : komorebic flip-layout horizontal
 win + y : komorebic flip-layout vertical
@@ -60,3 +60,5 @@ win + shift + 4 : komorebic move-to-workspace 3
 win + shift + 5 : komorebic move-to-workspace 4
 win + shift + 6 : komorebic move-to-workspace 5
 win + shift + 7 : komorebic move-to-workspace 6
+
+win + escape : reg add "HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System" /v DisableLockWorkstation /t REG_DWORD /d 0 /f && rundll32.exe user32.dll,LockWorkStation && ping 127.0.0.1 -n 2 >nul && reg add "HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System" /v DisableLockWorkstation /t REG_DWORD /d 1 /f

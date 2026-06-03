@@ -22,10 +22,10 @@ function Step-KomorebiSetup {
     komorebic fetch-asc 2>&1 | Write-Host
     Write-Log "  Fetched application-specific configs (applications.json)" "INFO"
 
-    komorebic enable-autostart --whkd --bar 2>&1 | Write-Host
-    Write-Log "  Enabled autostart (komorebi.lnk in shell:startup, starts komorebi + whkd + bar)" "INFO"
+    komorebic enable-autostart --whkd --bar --masir 2>&1 | Write-Host
+    Write-Log "  Enabled autostart (komorebi.lnk in shell:startup, starts komorebi + whkd + bar + masir)" "INFO"
 
-    Write-Log "Komorebi configured. It starts with whkd & bar at next sign-in." "SUCCESS"
+    Write-Log "Komorebi configured." "SUCCESS"
     Write-Log "  To start now without signing out, run in a normal (non-admin) terminal: komorebic start --whkd --bar" "INFO"
 }
 Step-KomorebiSetup
