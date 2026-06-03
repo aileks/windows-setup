@@ -53,15 +53,11 @@ win + 2 : komorebic focus-workspace 1
 win + 3 : komorebic focus-workspace 2
 win + 4 : komorebic focus-workspace 3
 win + 5 : komorebic focus-workspace 4
-win + 6 : komorebic focus-workspace 5
-win + 7 : komorebic focus-workspace 6
 
 win + shift + 1 : komorebic move-to-workspace 0
 win + shift + 2 : komorebic move-to-workspace 1
 win + shift + 3 : komorebic move-to-workspace 2
 win + shift + 4 : komorebic move-to-workspace 3
 win + shift + 5 : komorebic move-to-workspace 4
-win + shift + 6 : komorebic move-to-workspace 5
-win + shift + 7 : komorebic move-to-workspace 6
 
 win + escape : schtasks /run /tn KomorebiLock
