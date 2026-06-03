@@ -7,7 +7,7 @@ Guided PowerShell setup script for a fresh Windows 11 24H2+ install.
 - Enables WSL2 + Virtual Machine Platform
 - Enables symlinks, long paths, developer mode
 - Installs apps via `winget import` from `apps.json`
-- Installs Arch Linux on WSL (web-download, no Microsoft Store needed)
+- Installs Arch Linux on WSL
 - Applies Explorer power-user tweaks
 - Applies mild privacy hardening
 - Activates Ultimate Performance power plan
