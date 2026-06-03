@@ -1,15 +1,15 @@
 .shell cmd
 .pause win + shift + oem_2
 
-win + o : taskkill /f /im whkd.exe; start /b whkd
+win + o : taskkill /f /im whkd.exe & start /b whkd
 win + shift + o : komorebic reload-configuration
 
 win + q : komorebic close
 win + shift + m : komorebic minimize
 
-win + b : start /b "$Env:ProgramFiles\Zen Browser\zen.exe"
-win + s : start /b "$Env:LOCALAPPDATA\Programs\signal-desktop\Signal.exe"
-win + m : start /b "$Env:ProgramFiles\Fastmail\Fastmail.exe"
+win + b : start /b "%ProgramFiles%\Zen Browser\zen.exe"
+win + s : start /b "%LOCALAPPDATA%\Programs\signal-desktop\Signal.exe"
+win + m : start /b "%ProgramFiles%\Fastmail\Fastmail.exe"
 win + t : start /b wt
 
 win + h : komorebic focus left

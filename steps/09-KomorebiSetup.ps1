@@ -14,16 +14,13 @@ function Step-KomorebiSetup {
     Copy-Item "$script:RootDir/configs/komorebi/whkdrc" $whkdConfig -Force
     Write-Log "  Deployed komorebi.json, komorebi.bar.json and whkdrc" "INFO"
 
-    # Win+L is remapped to "focus right" in whkdrc; that only works if the OS lock is
-    # disabled, so a hotkey daemon can intercept Win+L. This policy also disables all
-    # locking, so Win+Escape locks via the elevated KomorebiLock task registered below.
+    # Frees Win+L for whkd by disabling the OS lock; Win+Escape locks via KomorebiLock below.
     Set-RegistrySafe -Path "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System" `
         -Name "DisableLockWorkstation" -Value 1 -Type DWord
     Write-Log "  Set DisableLockWorkstation=1 (frees Win+L for komorebi)" "INFO"
 
-    # Win+Escape -> lock. whkd runs non-elevated and cannot write the protected Policies
-    # key, so it triggers this elevated on-demand task (no UAC prompt). The task toggles
-    # the policy off, locks, then restores it to keep the Win+L remap working.
+    # Elevated on-demand task: non-elevated whkd can't toggle the policy, so this re-enables
+    # locking, locks, then disables it again to keep Win+L free.
     $lockCmd = '/c reg add "HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System" /v DisableLockWorkstation /t REG_DWORD /d 0 /f && rundll32.exe user32.dll,LockWorkStation && ping 127.0.0.1 -n 2 >nul && reg add "HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System" /v DisableLockWorkstation /t REG_DWORD /d 1 /f'
     $action    = New-ScheduledTaskAction -Execute "cmd.exe" -Argument $lockCmd
     $principal = New-ScheduledTaskPrincipal -UserId "$env:USERDOMAIN\$env:USERNAME" -LogonType Interactive -RunLevel Highest
@@ -39,6 +36,9 @@ function Step-KomorebiSetup {
 
     komorebic fetch-asc 2>&1 | Write-Host
     Write-Log "  Fetched application-specific configs (applications.json)" "INFO"
+
+    Get-ScheduledTask -TaskName 'Komorebi' -ErrorAction SilentlyContinue |
+        Unregister-ScheduledTask -Confirm:$false
 
     komorebic enable-autostart --whkd --bar --masir 2>&1 | Write-Host
     Write-Log "  Enabled autostart (komorebi.lnk in shell:startup, starts komorebi + whkd + bar + masir)" "INFO"
