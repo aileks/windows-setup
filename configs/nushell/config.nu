@@ -61,4 +61,7 @@ $env.config = {
 alias ll = ls -la
 alias la = ls -a
 alias cat = open --raw
+alias c = clear
+alias vim = nvim
+alias fzf = ^fzf --style full
 source ~/.zoxide.nu

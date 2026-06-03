@@ -1,5 +1,4 @@
 [
-  // Leader bindings — normal + visual
   {
     "context": "Editor && (vim_mode == normal || vim_mode == visual) && !VimWaiting",
     "bindings": {
@@ -33,7 +32,6 @@
     }
   },
 
-  // Normal-only — visual-line j/k + centered scroll
   {
     "context": "Editor && vim_mode == normal && !VimWaiting",
     "bindings": {
@@ -44,7 +42,6 @@
     }
   },
 
-  // Visual-only
   {
     "context": "Editor && vim_mode == visual && !VimWaiting",
     "bindings": {
@@ -54,7 +51,6 @@
     }
   },
 
-  // Pane navigation
   {
     "context": "(Dock || Terminal || Editor) && !VimWaiting",
     "bindings": {
@@ -65,7 +61,6 @@
     }
   },
 
-  // Subword motion
   {
     "context": "VimControl && !menu && vim_mode != operator",
     "bindings": {
@@ -76,7 +71,6 @@
     }
   },
 
-  // Empty pane / startup
   {
     "context": "EmptyPane",
     "bindings": {
@@ -85,7 +79,6 @@
     }
   },
 
-  // Project panel
   {
     "context": "ProjectPanel && not_editing",
     "bindings": {
