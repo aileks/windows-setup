@@ -1,5 +1,12 @@
 function Step-GitConfig {
     if (Test-StateCompleted "08-GitConfig") { return }
+
+    if (-not (Ask-YesNo "Set up global git config?" $false)) {
+        Write-Log "Skipping git config" "INFO"
+        Set-StateCompleted "08-GitConfig"
+        return
+    }
+
     Write-Log "Configuring git..." "INFO"
 
     $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")

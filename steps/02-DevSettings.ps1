@@ -1,6 +1,6 @@
 function Step-DevSettings {
     if (Test-StateCompleted "02-DevSettings") { return }
-    Write-Log "Enabling developer settings (symlinks, long paths)..." "INFO"
+    Write-Log "Enabling developer settings: symlinks, long paths..." "INFO"
 
     Set-RegistryBatch @{
         "HKLM:\SYSTEM\CurrentControlSet\Control\FileSystem" = @{

@@ -11,7 +11,7 @@ function Step-PowerPlan {
     if ($match) {
         $guid = ($match.Line -split '\s+')[3]
         powercfg -setactive $guid
-        Write-Log "Ultimate Performance plan active ($guid)" "SUCCESS"
+        Write-Log "Ultimate Performance plan active: $guid" "SUCCESS"
     } else {
         Write-Log "Could not activate Ultimate Performance plan" "WARN"
     }

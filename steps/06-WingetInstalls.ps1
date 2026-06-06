@@ -33,7 +33,7 @@ function Step-WingetInstalls {
         --ignore-unavailable --disable-interactivity --no-upgrade 2>&1 | Write-Host
 
     if ($LASTEXITCODE -ne 0) {
-        Write-Log "  winget import returned exit code $LASTEXITCODE (some packages may be unavailable or already installed)." "WARN"
+        Write-Log "  winget import returned exit code $LASTEXITCODE; some packages may be unavailable or already installed." "WARN"
     }
 
     $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")

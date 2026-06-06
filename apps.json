@@ -1,47 +1,59 @@
 {
   "$schema": "https://aka.ms/winget-packages.schema.2.0.json",
-  "CreationDate": "2026-06-02T21:28:21.104-00:00",
+  "CreationDate": "2026-06-06T10:34:12.805-00:00",
   "Sources": [
     {
       "Packages": [
         {
-          "PackageIdentifier": "7zip.7zip"
-        },
-        {
           "PackageIdentifier": "VideoLAN.VLC"
-        },
-        {
-          "PackageIdentifier": "Neovim.Neovim"
-        },
-        {
-          "PackageIdentifier": "Valve.Steam"
         },
         {
           "PackageIdentifier": "Zen-Team.Zen-Browser"
         },
         {
-          "PackageIdentifier": "LGUG2Z.komorebi"
+          "PackageIdentifier": "DigitalScholar.Zotero"
         },
         {
-          "PackageIdentifier": "LGUG2Z.masir"
+          "PackageIdentifier": "LGUG2Z.komorebi"
         },
         {
           "PackageIdentifier": "LGUG2Z.whkd"
         },
         {
+          "PackageIdentifier": "LGUG2Z.masir"
+        },
+        {
+          "PackageIdentifier": "7zip.7zip"
+        },
+        {
+          "PackageIdentifier": "Elgato.StreamDeck"
+        },
+        {
+          "PackageIdentifier": "Microsoft.Coreutils"
+        },
+        {
           "PackageIdentifier": "OpenJS.NodeJS.LTS"
         },
         {
-          "PackageIdentifier": "Nushell.Nushell"
+          "PackageIdentifier": "Nvidia.PhysX"
+        },
+        {
+          "PackageIdentifier": "TechPowerUp.NVCleanstall"
         },
         {
           "PackageIdentifier": "Clement.bottom"
         },
         {
-          "PackageIdentifier": "Microsoft.EdgeWebView2Runtime"
+          "PackageIdentifier": "Klocman.BulkCrapUninstaller"
         },
         {
-          "PackageIdentifier": "Microsoft.VCRedist.2015+.x64"
+          "PackageIdentifier": "OBSProject.OBSStudio"
+        },
+        {
+          "PackageIdentifier": "Valve.Steam"
+        },
+        {
+          "PackageIdentifier": "RamenSoftware.Windhawk"
         },
         {
           "PackageIdentifier": "Bitwarden.Bitwarden"
@@ -50,10 +62,13 @@
           "PackageIdentifier": "OpenWhisperSystems.Signal"
         },
         {
-          "PackageIdentifier": "Voidstar.FilePilot"
+          "PackageIdentifier": "GlennDelahoy.SnappyDriverInstallerOrigin"
         },
         {
-          "PackageIdentifier": "GlennDelahoy.SnappyDriverInstallerOrigin"
+          "PackageIdentifier": "Logseq.Logseq"
+        },
+        {
+          "PackageIdentifier": "goatcorp.XIVLauncher"
         },
         {
           "PackageIdentifier": "ajeetdsouza.zoxide"
@@ -62,19 +77,10 @@
           "PackageIdentifier": "junegunn.fzf"
         },
         {
-          "PackageIdentifier": "TechPowerUp.NVCleanstall"
-        },
-        {
           "PackageIdentifier": "sharkdp.bat"
         },
         {
-          "PackageIdentifier": "DigitalScholar.Zotero"
-        },
-        {
-          "PackageIdentifier": "Logseq.Logseq"
-        },
-        {
-          "PackageIdentifier": "Klocman.BulkCrapUninstaller"
+          "PackageIdentifier": "Starship.Starship"
         },
         {
           "PackageIdentifier": "LocalSend.LocalSend"
@@ -83,7 +89,7 @@
           "PackageIdentifier": "ZedIndustries.Zed"
         },
         {
-          "PackageIdentifier": "Microsoft.PowerToys"
+          "PackageIdentifier": "ChatterinoTeam.Chatterino"
         },
         {
           "PackageIdentifier": "Microsoft.PowerShell"

@@ -17,7 +17,7 @@ function Step-KomorebiSetup {
     # Frees Win+L for whkd by disabling the OS lock; Win+Escape locks via KomorebiLock below.
     Set-RegistrySafe -Path "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System" `
         -Name "DisableLockWorkstation" -Value 1 -Type DWord
-    Write-Log "  Set DisableLockWorkstation=1 (frees Win+L for komorebi)" "INFO"
+    Write-Log "  Set DisableLockWorkstation=1 to free Win+L for komorebi" "INFO"
 
     # Elevated on-demand task: non-elevated whkd can't toggle the policy, so this re-enables locking, locks, then disables it again to keep Win+L free.
     $lockCmd = '/c reg add "HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System" /v DisableLockWorkstation /t REG_DWORD /d 0 /f && rundll32.exe user32.dll,LockWorkStation && ping 127.0.0.1 -n 2 >nul && reg add "HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System" /v DisableLockWorkstation /t REG_DWORD /d 1 /f'
@@ -26,7 +26,7 @@ function Step-KomorebiSetup {
     $settings  = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries `
                      -MultipleInstances IgnoreNew -ExecutionTimeLimit (New-TimeSpan -Minutes 1)
     Register-ScheduledTask -TaskName "KomorebiLock" -Action $action -Principal $principal -Settings $settings -Force | Out-Null
-    Write-Log "  Registered KomorebiLock scheduled task (Win+Escape lock)" "INFO"
+    Write-Log "  Registered KomorebiLock scheduled task for Win+Escape lock" "INFO"
 
     if (-not (Get-Command komorebic -ErrorAction SilentlyContinue)) {
         Write-Log "  komorebic not found, skipping fetch-asc and autostart task" "WARN"
@@ -43,6 +43,6 @@ function Step-KomorebiSetup {
     Write-Log "  Enabled autostart" "INFO"
 
     Write-Log "Komorebi configured." "SUCCESS"
-    Write-Log "  To start now without signing out, run in a normal (non-admin) terminal: komorebic start --whkd --bar --masir" "INFO"
+    Write-Log "  To start now without signing out, run in a normal non-admin terminal: komorebic start --whkd --bar --masir" "INFO"
 }
 Step-KomorebiSetup
