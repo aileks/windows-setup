@@ -5,7 +5,7 @@ Guided PowerShell setup script for a fresh Windows 11 24H2+ install.
 ## What it does
 
 - Enables WSL2 + Virtual Machine Platform
-- Enables symlinks, long paths, developer mode
+- Enables symlinks, long paths, and sudo
 - Installs apps via `winget import` from `apps.json`
 - Installs Ubuntu on WSL
 - Applies Explorer power-user tweaks
