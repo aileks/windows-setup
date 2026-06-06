@@ -2,31 +2,26 @@ function Step-ConfigDeploy {
     Write-Log "Deploying config files..." "INFO"
 
     $zedDir = "$env:APPDATA\Zed"
-    if (-not (Test-Path $zedDir)) { New-Item -Path $zedDir -ItemType Directory -Force | Out-Null }
-    Copy-Item "$script:RootDir/configs/zed/settings.json" "$zedDir\settings.json" -Force
-    Copy-Item "$script:RootDir/configs/zed/keymap.json" "$zedDir\keymap.json" -Force
-    Write-Log "  Deployed Zed config" "INFO"
+    New-ConfigLink "$script:RootDir/configs/zed/settings.json" "$zedDir\settings.json"
+    New-ConfigLink "$script:RootDir/configs/zed/keymap.json" "$zedDir\keymap.json"
+    Write-Log "  Linked Zed config" "INFO"
 
     $pwshProfileDir = Join-Path ([Environment]::GetFolderPath('MyDocuments')) 'PowerShell'
-    if (-not (Test-Path $pwshProfileDir)) { New-Item -Path $pwshProfileDir -ItemType Directory -Force | Out-Null }
-    Copy-Item "$script:RootDir/configs/powershell/Microsoft.PowerShell_profile.ps1" "$pwshProfileDir\Microsoft.PowerShell_profile.ps1" -Force
-    Write-Log "  Deployed PowerShell 7 profile" "INFO"
+    New-ConfigLink "$script:RootDir/configs/powershell/Microsoft.PowerShell_profile.ps1" "$pwshProfileDir\Microsoft.PowerShell_profile.ps1"
+    Write-Log "  Linked PowerShell 7 profile" "INFO"
 
     $starshipDir = "$env:USERPROFILE\.config"
-    if (-not (Test-Path $starshipDir)) { New-Item -Path $starshipDir -ItemType Directory -Force | Out-Null }
-    Copy-Item "$script:RootDir/configs/starship/starship.toml" "$starshipDir\starship.toml" -Force
-    Write-Log "  Deployed starship.toml" "INFO"
+    New-ConfigLink "$script:RootDir/configs/starship/starship.toml" "$starshipDir\starship.toml"
+    Write-Log "  Linked starship.toml" "INFO"
 
     $batDir = "$env:APPDATA\bat"
-    $batThemeDir = "$batDir\themes"
-    if (-not (Test-Path $batThemeDir)) { New-Item -Path $batThemeDir -ItemType Directory -Force | Out-Null }
-    Copy-Item "$script:RootDir/configs/bat/config" "$batDir\config" -Force
-    Copy-Item "$script:RootDir/configs/bat/ashen.tmTheme" "$batThemeDir\ashen.tmTheme" -Force
+    New-ConfigLink "$script:RootDir/configs/bat/config" "$batDir\config"
+    New-ConfigLink "$script:RootDir/configs/bat/ashen.tmTheme" "$batDir\themes\ashen.tmTheme"
     if (Get-Command bat -ErrorAction SilentlyContinue) {
         bat cache --build 2>&1 | Write-Host
-        Write-Log "  Deployed bat config; cache rebuilt" "INFO"
+        Write-Log "  Linked bat config; cache rebuilt" "INFO"
     } else {
-        Write-Log "  Deployed bat config; bat not on PATH, run 'bat cache --build' after install" "WARN"
+        Write-Log "  Linked bat config; bat not on PATH, run 'bat cache --build' after install" "WARN"
     }
 
     $termPkgDir = "$env:LOCALAPPDATA\Packages\Microsoft.WindowsTerminal_8wekyb3d8bbwe"

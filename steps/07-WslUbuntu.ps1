@@ -18,10 +18,8 @@ function Step-WslUbuntu {
         }
     }
 
-    $wslConfigSource = "$script:RootDir/configs/wsl/.wslconfig"
-    $wslConfigDest = "$env:USERPROFILE\.wslconfig"
-    Copy-Item $wslConfigSource $wslConfigDest -Force
-    Write-Log "  Deployed .wslconfig with mirrored networking" "INFO"
+    New-ConfigLink "$script:RootDir/configs/wsl/.wslconfig" "$env:USERPROFILE\.wslconfig"
+    Write-Log "  Linked .wslconfig with mirrored networking" "INFO"
     Write-Log "  configs/wsl/wsl.conf is provided to apply manually inside the distro after creating your Linux user." "INFO"
 
     Set-StateCompleted "07-WslUbuntu"

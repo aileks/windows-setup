@@ -12,6 +12,7 @@ $script:RootDir = $PSScriptRoot
 $script:SetupScript = $PSCommandPath
 . "$script:RootDir/lib/State.ps1"
 . "$script:RootDir/lib/Logger.ps1"
+. "$script:RootDir/lib/Link.ps1"
 . "$script:RootDir/lib/Registry.ps1"
 . "$script:RootDir/lib/Prompt.ps1"
 

@@ -6,13 +6,10 @@ function Step-KomorebiSetup {
     $komorebiConfig = "$env:USERPROFILE\komorebi.json"
     $whkdConfig = "$env:USERPROFILE\.config\whkdrc"
 
-    Copy-Item "$script:RootDir/configs/komorebi/komorebi.json" $komorebiConfig -Force
-    Copy-Item "$script:RootDir/configs/komorebi/komorebi.bar.json" "$env:USERPROFILE\komorebi.bar.json" -Force
-    if (-not (Test-Path (Split-Path $whkdConfig -Parent))) {
-        New-Item -Path (Split-Path $whkdConfig -Parent) -ItemType Directory -Force | Out-Null
-    }
-    Copy-Item "$script:RootDir/configs/komorebi/whkdrc" $whkdConfig -Force
-    Write-Log "  Deployed komorebi.json, komorebi.bar.json and whkdrc" "INFO"
+    New-ConfigLink "$script:RootDir/configs/komorebi/komorebi.json" $komorebiConfig
+    New-ConfigLink "$script:RootDir/configs/komorebi/komorebi.bar.json" "$env:USERPROFILE\komorebi.bar.json"
+    New-ConfigLink "$script:RootDir/configs/komorebi/whkdrc" $whkdConfig
+    Write-Log "  Linked komorebi.json, komorebi.bar.json and whkdrc" "INFO"
 
     # Frees Win+L for whkd by disabling the OS lock; Win+Escape locks via KomorebiLock below.
     Set-RegistrySafe -Path "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System" `
