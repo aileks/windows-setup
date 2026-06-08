@@ -71,6 +71,14 @@
           "layout": "BSP"
         }
       ]
+    },
+    {
+      "workspaces": [
+        {
+          "name": "I",
+          "layout": "Rows"
+        }
+      ]
     }
   ]
 }
