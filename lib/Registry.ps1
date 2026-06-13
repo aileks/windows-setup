@@ -4,21 +4,51 @@ function Set-RegistrySafe {
         [Parameter(Mandatory)][string]$Name,
         [Parameter(Mandatory)]$Value,
         [ValidateSet("DWord","String","ExpandString","QWord")]
-        [string]$Type = "DWord"
+        [string]$Type = "DWord",
+        [switch]$PassThru
     )
 
+    $success = $false
     try {
         if (-not (Test-Path $Path)) {
             New-Item -Path $Path -Force | Out-Null
         }
 
-        $existing = Get-ItemProperty -Path $Path -Name $Name -ErrorAction SilentlyContinue
-        if ($null -eq $existing -or $existing.$Name -ne $Value) {
-            Set-ItemProperty -Path $Path -Name $Name -Value $Value -Type $Type -Force
+        $propertyName = if ($Name -eq "(Default)") { "" } else { $Name }
+        $kind = switch ($Type) {
+            "DWord"        { [Microsoft.Win32.RegistryValueKind]::DWord }
+            "String"       { [Microsoft.Win32.RegistryValueKind]::String }
+            "ExpandString" { [Microsoft.Win32.RegistryValueKind]::ExpandString }
+            "QWord"        { [Microsoft.Win32.RegistryValueKind]::QWord }
+        }
+
+        $root = $null
+        $subKey = $null
+        if ($Path -match "^HKLM:\\(.+)$") {
+            $root = [Microsoft.Win32.Registry]::LocalMachine
+            $subKey = $Matches[1]
+        } elseif ($Path -match "^HKCU:\\(.+)$") {
+            $root = [Microsoft.Win32.Registry]::CurrentUser
+            $subKey = $Matches[1]
+        } else {
+            throw "Unsupported registry hive in path: $Path"
+        }
+
+        $key = $root.CreateSubKey($subKey)
+        try {
+            $existing = $key.GetValue($propertyName, $null, [Microsoft.Win32.RegistryValueOptions]::DoNotExpandEnvironmentNames)
+            if ($null -eq $existing -or $existing -ne $Value) {
+                $key.SetValue($propertyName, $Value, $kind)
+            }
+            $success = $true
+        } finally {
+            if ($key) { $key.Dispose() }
         }
     } catch {
         Write-Log "  Failed to set registry: ${Path}\${Name} - $($_.Exception.Message)" "WARN"
     }
+
+    if ($PassThru) { return $success }
 }
 
 function Remove-RegistryKey {
@@ -42,12 +72,10 @@ function Set-RegistryBatch {
             $entry = $props[$name]
             $value = $entry.Value
             $type = if ($entry.ContainsKey("Type")) { $entry.Type } else { "DWord" }
-            try {
-                Set-RegistrySafe -Path $path -Name $name -Value $value -Type $type
+            if (Set-RegistrySafe -Path $path -Name $name -Value $value -Type $type -PassThru) {
                 $count++
-            } catch {
+            } else {
                 $failed++
-                Write-Log "  Failed: ${Path}\${Name} - $($_.Exception.Message)" "WARN"
             }
         }
     }

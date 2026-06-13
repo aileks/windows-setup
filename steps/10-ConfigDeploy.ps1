@@ -1,11 +1,6 @@
 function Step-ConfigDeploy {
     Write-Log "Deploying config files..." "INFO"
 
-    $zedDir = "$env:APPDATA\Zed"
-    New-ConfigLink "$script:RootDir/configs/zed/settings.json" "$zedDir\settings.json"
-    New-ConfigLink "$script:RootDir/configs/zed/keymap.json" "$zedDir\keymap.json"
-    Write-Log "  Linked Zed config" "INFO"
-
     $pwshProfileDir = Join-Path ([Environment]::GetFolderPath('MyDocuments')) 'PowerShell'
     New-ConfigLink "$script:RootDir/configs/powershell/Microsoft.PowerShell_profile.ps1" "$pwshProfileDir\Microsoft.PowerShell_profile.ps1"
     Write-Log "  Linked PowerShell 7 profile" "INFO"

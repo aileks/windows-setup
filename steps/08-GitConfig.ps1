@@ -27,10 +27,8 @@ function Step-GitConfig {
     git config --global init.defaultBranch main
     git config --global core.autocrlf true
     git config --global pull.rebase true
-    git config --global core.editor "zed --wait"
+    git config --global core.editor "code --wait"
     git config --global core.pager ""
-    git config --global alias.st "status -sb"
-    git config --global alias.ll "log --oneline -n 15"
 
     Set-StateCompleted "08-GitConfig"
     Write-Log "Git configured" "SUCCESS"

@@ -5,7 +5,7 @@ Guided PowerShell setup script for a fresh Windows 11 24H2+ install.
 ## What it does
 
 - Enables WSL2 + Virtual Machine Platform
-- Enables symlinks, long paths, and sudo
+- Enables symlinks, long paths, and Sudo for Windows in normal mode when available
 - Installs apps via `winget import` from `apps.json`
 - Installs Ubuntu on WSL
 - Applies Explorer power-user tweaks
@@ -34,4 +34,5 @@ Set-ExecutionPolicy Bypass -Scope Process
 > Because configs are symlinked rather than copied, keep this repo at its cloned location. Moving or deleting it leaves the linked configs dangling. Any pre-existing real config the script replaces is backed up once to `<file>.bak`.
 
 ## Known Issues
+
 - PowerToys must load after komorebi or PowerToys keybinds will take precedence.

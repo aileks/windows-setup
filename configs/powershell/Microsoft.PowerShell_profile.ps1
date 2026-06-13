@@ -1,4 +1,4 @@
-$env:EDITOR = 'zed --wait'
+$env:EDITOR = 'code --wait'
 $env:VISUAL = $env:EDITOR
 
 $env:PATH = "$env:USERPROFILE\.local\bin;$env:USERPROFILE\.cargo\bin;$env:PATH"
@@ -40,22 +40,35 @@ Set-PSReadLineOption -ViModeIndicator Cursor
 Set-PSReadLineOption -HistoryNoDuplicates
 Set-PSReadLineOption -MaximumHistoryCount 50000
 Set-PSReadLineOption -HistorySaveStyle SaveIncrementally
-Set-PSReadLineOption -PredictionSource HistoryAndPlugin
-Set-PSReadLineOption -PredictionViewStyle ListView
 Set-PSReadLineKeyHandler -Key Tab -Function MenuComplete
+
+if (-not [Console]::IsOutputRedirected -and -not [Console]::IsInputRedirected) {
+    Set-PSReadLineOption -PredictionSource HistoryAndPlugin
+    Set-PSReadLineOption -PredictionViewStyle ListView
+}
 
 if (Get-Module -ListAvailable PSFzf) {
     Import-Module PSFzf
     Set-PsFzfOption -PSReadlineChordProvider 'Ctrl+t' `
-                    -PSReadlineChordReverseHistory 'Ctrl+r'
+        -PSReadlineChordReverseHistory 'Ctrl+r'
 }
 
-# Microsoft's coreutils replace these
+# Remove PowerShell aliases so Microsoft.Coreutils executables resolve first.
 'ls', 'cat', 'cp', 'mv', 'rm', 'echo', 'sort', 'tee', 'pwd' |
-    ForEach-Object { Remove-Item "Alias:$_" -Force -ErrorAction SilentlyContinue }
+ForEach-Object { Remove-Item "Alias:$_" -Force -ErrorAction SilentlyContinue }
 Remove-Item Function:mkdir -Force -ErrorAction SilentlyContinue
 
 Set-Alias c Clear-Host
+
+function gst { git status @args }
+function gaa { git add --all @args }
+function gb { git branch @args }
+function gba { git branch --all @args }
+function gca { git commit --amend @args }
+function gcmsg { git commit --message @args }
+function gco { git checkout @args }
+function gm { git merge @args }
+function glog { git log --oneline --decorate --graph --all @args }
 function ll { ls -la @args }
 function la { ls -a @args }
 function fzf { fzf.exe --style full @args }

@@ -2,6 +2,9 @@ function Step-WslUbuntu {
     if (Test-StateCompleted "07-WslUbuntu") { return }
     Write-Log "Setting up WSL with Ubuntu..." "INFO"
 
+    New-ConfigLink "$script:RootDir/configs/wsl/.wslconfig" "$env:USERPROFILE\.wslconfig"
+    Write-Log "  Linked .wslconfig with mirrored networking" "INFO"
+
     Write-Log "  Updating WSL via web-download, skipping the Store..." "INFO"
     wsl --update --web-download 2>&1 | Write-Host
 
@@ -15,11 +18,10 @@ function Step-WslUbuntu {
         if ($LASTEXITCODE -ne 0) {
             Write-Log "  Ubuntu install did not complete; WSL features may need a reboot first." "WARN"
             Write-Log "  Reboot, then re-run this step or run: wsl --install --web-download -d Ubuntu" "WARN"
+            return
         }
     }
 
-    New-ConfigLink "$script:RootDir/configs/wsl/.wslconfig" "$env:USERPROFILE\.wslconfig"
-    Write-Log "  Linked .wslconfig with mirrored networking" "INFO"
     Write-Log "  configs/wsl/wsl.conf is provided to apply manually inside the distro after creating your Linux user." "INFO"
 
     Set-StateCompleted "07-WslUbuntu"

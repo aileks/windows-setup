@@ -15,7 +15,7 @@ function Step-WslFeatures {
 
     if ($needsReboot) {
         Write-Log "WSL features enabled, but a reboot is required before WSL will work." "WARN"
-        Write-Log "  Reboot manually when setup finishes, then WSL/Arch will be usable." "WARN"
+        Write-Log "  Reboot manually when setup finishes, then WSL/Ubuntu will be usable." "WARN"
     }
 }
 Step-WslFeatures
