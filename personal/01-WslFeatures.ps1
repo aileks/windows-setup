@@ -1,4 +1,8 @@
 function Step-WslFeatures {
+    if ($script:PersonalSetupSelected -ne $true) {
+        return
+    }
+
     if (Test-StateCompleted "Personal.WslFeatures") { return }
     Write-Log "Enabling WSL and Virtual Machine Platform..." "INFO"
 

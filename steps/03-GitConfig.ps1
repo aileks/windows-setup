@@ -1,16 +1,15 @@
 function Step-GitConfig {
-    if (Test-StateCompleted "02-GitConfig") { return }
+    if (Test-StateCompleted "03-GitConfig") { return }
 
     Refresh-EnvironmentPath
     if (-not (Get-Command git -ErrorAction SilentlyContinue)) {
-        Write-Log "Git is not installed or not on PATH; skipping Git config setup." "WARN"
+        Write-Log "Git is not installed or not on PATH." "WARN"
         Write-Log "  Install Git manually and re-run setup if you want this stage to configure .gitconfig." "WARN"
         return
     }
 
     if (-not (Ask-YesNo "Set up global Git config?" $false)) {
-        Write-Log "Skipping Git config setup" "INFO"
-        Set-StateCompleted "02-GitConfig"
+        Set-StateCompleted "03-GitConfig"
         return
     }
 
@@ -67,6 +66,6 @@ function Step-GitConfig {
 
     $gitConfigPath = Join-Path $env:USERPROFILE ".gitconfig"
     Write-Log "Git configured at $gitConfigPath" "SUCCESS"
-    Set-StateCompleted "02-GitConfig"
+    Set-StateCompleted "03-GitConfig"
 }
 Step-GitConfig

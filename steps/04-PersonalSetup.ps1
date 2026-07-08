@@ -1,11 +1,15 @@
 function Step-PersonalSetup {
+    $script:PersonalSetupSelected = $false
+
     if (-not (Ask-YesNo "Use personal setup?" $true)) {
-        Write-Log "Skipping personal setup" "INFO"
         return
     }
 
+    $script:PersonalSetupSelected = $true
+
     $personalDir = "$script:RootDir/personal"
     if (-not (Test-Path $personalDir)) {
+        $script:PersonalSetupSelected = $false
         Write-Log "Personal setup directory not found at $personalDir" "WARN"
         return
     }
@@ -41,5 +45,7 @@ function Step-PersonalSetup {
     } else {
         Write-Log "Reboot skipped; reboot manually before relying on WSL feature changes." "WARN"
     }
+
+    $script:PersonalSetupSelected = $false
 }
 Step-PersonalSetup

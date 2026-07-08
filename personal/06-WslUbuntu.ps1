@@ -1,11 +1,15 @@
 function Step-WslUbuntu {
+    if ($script:PersonalSetupSelected -ne $true) {
+        return
+    }
+
     if (Test-StateCompleted "Personal.WslUbuntu") { return }
     Write-Log "Setting up WSL with Ubuntu..." "INFO"
 
     New-ConfigLink "$script:RootDir/configs/wsl/.wslconfig" "$env:USERPROFILE\.wslconfig"
     Write-Log "  Linked .wslconfig with mirrored networking" "INFO"
 
-    Write-Log "  Updating WSL via web-download, skipping the Store..." "INFO"
+    Write-Log "  Updating WSL via web-download instead of the Store..." "INFO"
     wsl --update --web-download 2>&1 | Write-Host
 
     wsl --set-default-version 2 2>&1 | Out-Null

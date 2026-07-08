@@ -3,7 +3,6 @@ function Step-ConfigDeploy {
 
     $termPkgDir = "$env:LOCALAPPDATA\Packages\Microsoft.WindowsTerminal_8wekyb3d8bbwe"
     if (-not (Test-SoftwareInstalled -Commands @("wt.exe") -Detector { Test-Path $termPkgDir })) {
-        Write-Log "  Windows Terminal is not installed, skipping Terminal config" "INFO"
         return
     }
 
@@ -29,7 +28,9 @@ function Step-ConfigDeploy {
         $defaults | Add-Member -NotePropertyName "colorScheme" -NotePropertyValue "Ashen" -Force
         $defaults | Add-Member -NotePropertyName "useAcrylic" -NotePropertyValue $true -Force
         $defaults | Add-Member -NotePropertyName "opacity" -NotePropertyValue 85 -Force
-        $defaults | Add-Member -NotePropertyName "font" -NotePropertyValue @{ face = "CommitMono Nerd Font Mono"; size = 13 } -Force
+        $monoFontFace = Get-SelectedNerdFontMonoFace
+        if (-not $monoFontFace) { $monoFontFace = "CommitMono Nerd Font Mono" }
+        $defaults | Add-Member -NotePropertyName "font" -NotePropertyValue @{ face = $monoFontFace; size = 13 } -Force
         $defaults | Add-Member -NotePropertyName "padding" -NotePropertyValue "12" -Force
         $defaults | Add-Member -NotePropertyName "cursorShape" -NotePropertyValue "bar" -Force
 
@@ -37,10 +38,15 @@ function Step-ConfigDeploy {
         Write-Log "  Merged Ashen theme into Windows Terminal" "INFO"
     } elseif (Test-Path $termPkgDir) {
         if (-not (Test-Path $termDir)) { New-Item -Path $termDir -ItemType Directory -Force | Out-Null }
-        Copy-Item "$script:RootDir/configs/windows-terminal/settings.json" $termSettingsPath -Force
+        $settings = Get-Content "$script:RootDir/configs/windows-terminal/settings.json" -Raw | ConvertFrom-Json
+        $monoFontFace = Get-SelectedNerdFontMonoFace
+        if ($monoFontFace) {
+            $settings.profiles.defaults.font.face = $monoFontFace
+        }
+        $settings | ConvertTo-Json -Depth 20 | Set-Content $termSettingsPath -Encoding UTF8
         Write-Log "  Deployed fresh Windows Terminal settings" "INFO"
     } else {
-        Write-Log "  Windows Terminal not installed, skipping Terminal config" "WARN"
+        Write-Log "  Windows Terminal was detected, but its settings directory was not found" "WARN"
     }
 
     Write-Log "Config files deployed" "SUCCESS"

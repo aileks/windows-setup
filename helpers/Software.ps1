@@ -64,7 +64,9 @@ function Ensure-WinGet {
     try {
         Install-PackageProvider -Name NuGet -Force | Out-Null
         Set-PSRepository -Name PSGallery -InstallationPolicy Trusted -ErrorAction SilentlyContinue
+
         Install-Module -Name Microsoft.WinGet.Client -Force -AllowClobber
+
         Repair-WinGetPackageManager -AllUsers
         Refresh-EnvironmentPath
     } catch {
@@ -168,18 +170,21 @@ function Get-InstallIdsForSoftwareItem {
 function Install-WinGetPackage {
     param(
         [Parameter(Mandatory)][string]$PackageId,
-        [Parameter(Mandatory)][string]$Name
+        [Parameter(Mandatory)][string]$Name,
+        [string]$Source = ""
     )
 
     Write-Log "  Installing $Name ($PackageId) via winget..." "INFO"
     $arguments = @(
         "install",
-        "--id", $PackageId,
-        "--exact",
+        $PackageId,
         "--accept-package-agreements",
         "--accept-source-agreements",
         "--disable-interactivity"
     )
+    if (-not [string]::IsNullOrWhiteSpace($Source)) {
+        $arguments += @("--source", $Source)
+    }
 
     & winget @arguments 2>&1 | Write-Host
     if ($LASTEXITCODE -eq 0) {
@@ -226,7 +231,8 @@ function Install-SoftwareItem {
         "winget" {
             foreach ($id in (Get-InstallIdsForSoftwareItem -Item $Item)) {
                 $name = if ($id -eq $Item.id) { $Item.name } else { $id }
-                Install-WinGetPackage -PackageId $id -Name $name
+                $source = if ($id -eq $Item.id -and $Item.source) { $Item.source } else { "" }
+                Install-WinGetPackage -PackageId $id -Name $name -Source $source
             }
         }
         "direct" {
@@ -254,7 +260,6 @@ function Invoke-SoftwareSelectionInstall {
     Set-StateValue -Key "selectedSoftwareIds" -Value $selectedIds
 
     if ($selected.Count -eq 0) {
-        Write-Log "No software selected." "INFO"
         return $true
     }
 

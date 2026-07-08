@@ -1,0 +1,64 @@
+{
+  "bucket": {
+    "name": "nerd-fonts",
+    "source": "https://github.com/matthewjberger/scoop-nerd-fonts"
+  },
+  "fonts": [
+    {
+      "name": "Adwaita Mono",
+      "monoPackage": "AdwaitaMono-NF-Mono",
+      "propoPackage": "AdwaitaMono-NF-Propo",
+      "monoFace": "AdwaitaMono Nerd Font Mono",
+      "propoFace": "AdwaitaMono Nerd Font Propo"
+    },
+    {
+      "name": "Commit Mono",
+      "monoPackage": "CommitMono-NF-Mono",
+      "propoPackage": "CommitMono-NF-Propo",
+      "monoFace": "CommitMono Nerd Font Mono",
+      "propoFace": "CommitMono Nerd Font Propo"
+    },
+    {
+      "name": "Fira Code",
+      "monoPackage": "FiraCode-NF-Mono",
+      "propoPackage": "FiraCode-NF-Propo",
+      "monoFace": "FiraCode Nerd Font Mono",
+      "propoFace": "FiraCode Nerd Font Propo"
+    },
+    {
+      "name": "Geist Mono",
+      "monoPackage": "GeistMono-NF-Mono",
+      "propoPackage": "GeistMono-NF-Propo",
+      "monoFace": "GeistMono Nerd Font Mono",
+      "propoFace": "GeistMono Nerd Font Propo"
+    },
+    {
+      "name": "Hack",
+      "monoPackage": "Hack-NF-Mono",
+      "propoPackage": "Hack-NF-Propo",
+      "monoFace": "Hack Nerd Font Mono",
+      "propoFace": "Hack Nerd Font Propo"
+    },
+    {
+      "name": "Iosevka",
+      "monoPackage": "Iosevka-NF-Mono",
+      "propoPackage": "Iosevka-NF-Propo",
+      "monoFace": "Iosevka Nerd Font Mono",
+      "propoFace": "Iosevka Nerd Font Propo"
+    },
+    {
+      "name": "JetBrains Mono",
+      "monoPackage": "JetBrainsMono-NF-Mono",
+      "propoPackage": "JetBrainsMono-NF-Propo",
+      "monoFace": "JetBrainsMono Nerd Font Mono",
+      "propoFace": "JetBrainsMono Nerd Font Propo"
+    },
+    {
+      "name": "Meslo",
+      "monoPackage": "Meslo-NF-Mono",
+      "propoPackage": "Meslo-NF-Propo",
+      "monoFace": "MesloLGMDZ Nerd Font Mono",
+      "propoFace": "MesloLGMDZ Nerd Font Propo"
+    }
+  ]
+}

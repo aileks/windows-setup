@@ -130,6 +130,25 @@
           "id": "voidtools.Everything",
           "installer": "winget",
           "description": "fast file search"
+        },
+        {
+          "name": "Raycast",
+          "id": "9PFXXSHC64H3",
+          "installer": "winget",
+          "source": "msstore",
+          "description": "launcher and productivity commands"
+        },
+        {
+          "name": "Flow Launcher",
+          "id": "Flow-Launcher.Flow-Launcher",
+          "installer": "winget",
+          "description": "keyboard launcher"
+        },
+        {
+          "name": "Windhawk",
+          "id": "RamenSoftware.Windhawk",
+          "installer": "winget",
+          "description": "Windows shell customization"
         }
       ]
     }

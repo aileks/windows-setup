@@ -1,6 +1,5 @@
 function Step-KomorebiSetup {
     if (-not (Test-SoftwareInstalled -Commands @("komorebic"))) {
-        Write-Log "Skipping komorebi config; komorebi is not installed." "INFO"
         return
     }
 
@@ -10,12 +9,19 @@ function Step-KomorebiSetup {
     Refresh-EnvironmentPath
 
     $komorebiConfig = "$env:USERPROFILE\komorebi.json"
+    $komorebiBarConfig = "$env:USERPROFILE\komorebi.bar.json"
     $whkdConfig = "$env:USERPROFILE\.config\whkdrc"
 
     New-ConfigLink "$script:RootDir/configs/komorebi/komorebi.json" $komorebiConfig
-    New-ConfigLink "$script:RootDir/configs/komorebi/komorebi.bar.json" "$env:USERPROFILE\komorebi.bar.json"
     New-ConfigLink "$script:RootDir/configs/komorebi/whkdrc" $whkdConfig
-    Write-Log "  Linked komorebi.json, komorebi.bar.json and whkdrc" "INFO"
+
+    $barConfig = Get-Content "$script:RootDir/configs/komorebi/komorebi.bar.json" -Raw | ConvertFrom-Json
+    $propoFontFace = Get-SelectedNerdFontPropoFace
+    if ($propoFontFace) {
+        $barConfig.font_family = $propoFontFace
+    }
+    $barConfig | ConvertTo-Json -Depth 20 | Set-Content $komorebiBarConfig -Encoding UTF8
+    Write-Log "  Linked komorebi.json and whkdrc; deployed komorebi.bar.json" "INFO"
 
     # Frees Win+L for whkd by disabling the OS lock; Win+Escape locks via KomorebiLock below.
     Set-RegistrySafe -Path "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System" `
@@ -32,7 +38,7 @@ function Step-KomorebiSetup {
     Write-Log "  Registered KomorebiLock scheduled task for Win+Escape lock" "INFO"
 
     if (-not (Get-Command komorebic -ErrorAction SilentlyContinue)) {
-        Write-Log "  komorebic not found, skipping fetch-asc and autostart task" "WARN"
+        Write-Log "  komorebic not found; fetch-asc and autostart are unavailable" "WARN"
         return
     }
 
