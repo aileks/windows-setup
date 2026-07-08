@@ -3,25 +3,54 @@ function Step-WslUbuntu {
         return
     }
 
-    if (Test-StateCompleted "Personal.WslUbuntu") { return }
-    Write-Log "Setting up WSL with Ubuntu..." "INFO"
+    $ubuntuDistro = "Ubuntu-26.04"
+    $ubuntuName = "Ubuntu 26.04"
+
+    Refresh-EnvironmentPath
+    if (-not (Get-Command wsl.exe -ErrorAction SilentlyContinue)) {
+        Write-Log "  WSL is not installed or not available on PATH; reboot after enabling WSL features, then re-run setup." "WARN"
+        return
+    }
+
+    $wslStatus = @(wsl --status 2>&1)
+    if ($LASTEXITCODE -ne 0) {
+        $statusText = ($wslStatus | ForEach-Object {
+            ([string]$_).Replace([string][char]0, "").Trim()
+        } | Where-Object {
+            -not [string]::IsNullOrWhiteSpace($_)
+        }) -join " "
+
+        if (-not [string]::IsNullOrWhiteSpace($statusText)) {
+            Write-Log "  WSL status check failed: $statusText" "WARN"
+        }
+        Write-Log "  WSL is not installed or not ready; reboot after enabling WSL features, then re-run setup." "WARN"
+        return
+    }
 
     New-ConfigLink "$script:RootDir/configs/wsl/.wslconfig" "$env:USERPROFILE\.wslconfig"
     Write-Log "  Linked .wslconfig with mirrored networking" "INFO"
+
+    $distros = @(wsl --list --quiet 2>$null | ForEach-Object {
+        $_.Replace([string][char]0, "").Trim()
+    } | Where-Object {
+        -not [string]::IsNullOrWhiteSpace($_)
+    })
+    $ubuntuInstalled = $distros -contains $ubuntuDistro
+
+    if ((Test-StateCompleted "Personal.WslUbuntu") -and $ubuntuInstalled) { return }
+    Write-Log "Setting up WSL with $ubuntuName..." "INFO"
 
     Write-Log "  Updating WSL via web-download instead of the Store..." "INFO"
     wsl --update --web-download 2>&1 | Write-Host
 
     wsl --set-default-version 2 2>&1 | Out-Null
 
-    $distros = wsl --list --quiet 2>$null
-    $ubuntuInstalled = $distros | Where-Object { $_ -match "Ubuntu" }
     if (-not $ubuntuInstalled) {
-        Write-Log "  Installing Ubuntu distro via web-download with no-launch; create your Linux user afterward..." "INFO"
-        wsl --install --web-download -d Ubuntu --no-launch 2>&1 | Write-Host
+        Write-Log "  Installing $ubuntuName distro via web-download with no-launch; create your Linux user afterward..." "INFO"
+        wsl --install --web-download -d $ubuntuDistro --no-launch 2>&1 | Write-Host
         if ($LASTEXITCODE -ne 0) {
-            Write-Log "  Ubuntu install did not complete; WSL features may need a reboot first." "WARN"
-            Write-Log "  Reboot, then re-run this step or run: wsl --install --web-download -d Ubuntu" "WARN"
+            Write-Log "  $ubuntuName install did not complete; WSL features may need a reboot first." "WARN"
+            Write-Log "  Reboot, then re-run this step or run: wsl --install --web-download -d $ubuntuDistro" "WARN"
             return
         }
     }
@@ -30,6 +59,6 @@ function Step-WslUbuntu {
 
     Set-StateValue "rebootRequired" $false
     Set-StateCompleted "Personal.WslUbuntu"
-    Write-Log "WSL Ubuntu setup complete. Run 'wsl -d Ubuntu' to create your Linux user." "SUCCESS"
+    Write-Log "WSL $ubuntuName setup complete. Run 'wsl -d $ubuntuDistro' to create your Linux user." "SUCCESS"
 }
 Step-WslUbuntu

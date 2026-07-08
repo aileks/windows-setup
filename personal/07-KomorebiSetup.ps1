@@ -3,25 +3,19 @@ function Step-KomorebiSetup {
         return
     }
 
-    if (Test-StateCompleted "Personal.KomorebiSetup") { return }
-    Write-Log "Setting up komorebi..." "INFO"
-
-    Refresh-EnvironmentPath
-
     $komorebiConfig = "$env:USERPROFILE\komorebi.json"
     $komorebiBarConfig = "$env:USERPROFILE\komorebi.bar.json"
     $whkdConfig = "$env:USERPROFILE\.config\whkdrc"
 
     New-ConfigLink "$script:RootDir/configs/komorebi/komorebi.json" $komorebiConfig
+    New-ConfigLink "$script:RootDir/configs/komorebi/komorebi.bar.json" $komorebiBarConfig
     New-ConfigLink "$script:RootDir/configs/komorebi/whkdrc" $whkdConfig
+    Write-Log "  Linked komorebi config files" "INFO"
 
-    $barConfig = Get-Content "$script:RootDir/configs/komorebi/komorebi.bar.json" -Raw | ConvertFrom-Json
-    $propoFontFace = Get-SelectedNerdFontPropoFace
-    if ($propoFontFace) {
-        $barConfig.font_family = $propoFontFace
-    }
-    $barConfig | ConvertTo-Json -Depth 20 | Set-Content $komorebiBarConfig -Encoding UTF8
-    Write-Log "  Linked komorebi.json and whkdrc; deployed komorebi.bar.json" "INFO"
+    if (Test-StateCompleted "Personal.KomorebiSetup") { return }
+    Write-Log "Setting up komorebi..." "INFO"
+
+    Refresh-EnvironmentPath
 
     # Frees Win+L for whkd by disabling the OS lock; Win+Escape locks via KomorebiLock below.
     Set-RegistrySafe -Path "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System" `
