@@ -1,5 +1,5 @@
 function Step-ExplorerTweaks {
-    if (Test-StateCompleted "03-ExplorerTweaks") { return }
+    if (Test-StateCompleted "Personal.ExplorerTweaks") { return }
     Write-Log "Applying Explorer power-user tweaks..." "INFO"
 
     Set-RegistryBatch @{
@@ -19,7 +19,7 @@ function Step-ExplorerTweaks {
 
     Set-RegistrySafe -Path  "HKCU:\Software\Classes\CLSID\{86ca1aa0-34aa-4e8b-a509-50c905bae2a2}\InprocServer32" -Name "(Default)" -Value "" -Type String
 
-    Set-StateCompleted "03-ExplorerTweaks"
+    Set-StateCompleted "Personal.ExplorerTweaks"
     Write-Log "Explorer configured" "SUCCESS"
 }
 Step-ExplorerTweaks

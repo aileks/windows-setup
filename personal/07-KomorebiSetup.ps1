@@ -1,8 +1,13 @@
 function Step-KomorebiSetup {
-    if (Test-StateCompleted "09-KomorebiSetup") { return }
+    if (-not (Test-SoftwareInstalled -Commands @("komorebic"))) {
+        Write-Log "Skipping komorebi config; komorebi is not installed." "INFO"
+        return
+    }
+
+    if (Test-StateCompleted "Personal.KomorebiSetup") { return }
     Write-Log "Setting up komorebi..." "INFO"
 
-    $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
+    Refresh-EnvironmentPath
 
     $komorebiConfig = "$env:USERPROFILE\komorebi.json"
     $whkdConfig = "$env:USERPROFILE\.config\whkdrc"
@@ -40,7 +45,7 @@ function Step-KomorebiSetup {
     komorebic enable-autostart --whkd --bar --masir 2>&1 | Write-Host
     Write-Log "  Enabled autostart" "INFO"
 
-    Set-StateCompleted "09-KomorebiSetup"
+    Set-StateCompleted "Personal.KomorebiSetup"
     Write-Log "Komorebi configured." "SUCCESS"
     Write-Log "  To start now without signing out, run in a normal non-admin terminal: komorebic start --whkd --bar --masir" "INFO"
 }

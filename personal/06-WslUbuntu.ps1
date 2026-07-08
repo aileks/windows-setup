@@ -1,5 +1,5 @@
 function Step-WslUbuntu {
-    if (Test-StateCompleted "07-WslUbuntu") { return }
+    if (Test-StateCompleted "Personal.WslUbuntu") { return }
     Write-Log "Setting up WSL with Ubuntu..." "INFO"
 
     New-ConfigLink "$script:RootDir/configs/wsl/.wslconfig" "$env:USERPROFILE\.wslconfig"
@@ -24,7 +24,8 @@ function Step-WslUbuntu {
 
     Write-Log "  configs/wsl/wsl.conf is provided to apply manually inside the distro after creating your Linux user." "INFO"
 
-    Set-StateCompleted "07-WslUbuntu"
+    Set-StateValue "rebootRequired" $false
+    Set-StateCompleted "Personal.WslUbuntu"
     Write-Log "WSL Ubuntu setup complete. Run 'wsl -d Ubuntu' to create your Linux user." "SUCCESS"
 }
 Step-WslUbuntu

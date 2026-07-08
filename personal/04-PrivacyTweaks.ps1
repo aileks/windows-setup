@@ -1,5 +1,5 @@
 function Step-PrivacyTweaks {
-    if (Test-StateCompleted "04-PrivacyTweaks") { return }
+    if (Test-StateCompleted "Personal.PrivacyTweaks") { return }
     Write-Log "Applying privacy tweaks..." "INFO"
 
     Set-RegistryBatch @{
@@ -24,7 +24,7 @@ function Step-PrivacyTweaks {
         }
     }
 
-    Set-StateCompleted "04-PrivacyTweaks"
+    Set-StateCompleted "Personal.PrivacyTweaks"
     Write-Log "Privacy settings applied" "SUCCESS"
 }
 Step-PrivacyTweaks

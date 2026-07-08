@@ -1,0 +1,137 @@
+{
+  "categories": [
+    {
+      "key": "codeEditor",
+      "name": "Code editor",
+      "allowMultiple": true,
+      "items": [
+        { "name": "VS Code", "id": "Microsoft.VisualStudioCode", "installer": "winget" },
+        { "name": "Neovim", "id": "Neovim.Neovim", "installer": "winget" },
+        { "name": "Zed", "id": "ZedIndustries.Zed", "installer": "winget" },
+        { "name": "JetBrains Toolbox", "id": "JetBrains.Toolbox", "installer": "winget" }
+      ]
+    },
+    {
+      "key": "terminal",
+      "name": "Terminal",
+      "allowMultiple": true,
+      "items": [
+        { "name": "Windows Terminal", "id": "Microsoft.WindowsTerminal", "installer": "winget" },
+        { "name": "Rio", "id": "raphamorim.rio", "installer": "winget" },
+        { "name": "Tabby", "id": "Eugeny.Tabby", "installer": "winget" },
+        { "name": "Hyper", "id": "Vercel.Hyper", "installer": "winget" }
+      ]
+    },
+    {
+      "key": "windowManagement",
+      "name": "Window Management",
+      "allowMultiple": false,
+      "items": [
+        {
+          "name": "Komorebi",
+          "id": "LGUG2Z.komorebi",
+          "installer": "winget",
+          "dependencies": ["LGUG2Z.whkd", "LGUG2Z.masir"]
+        },
+        { "name": "GlazeWM", "id": "glzr-io.glazewm", "installer": "winget" }
+      ]
+    },
+    {
+      "key": "browser",
+      "name": "Browser",
+      "allowMultiple": true,
+      "items": [
+        { "name": "Zen Browser", "id": "Zen-Team.Zen-Browser", "installer": "winget" },
+        { "name": "Firefox", "id": "Mozilla.Firefox", "installer": "winget" },
+        { "name": "Brave Browser", "id": "Brave.Brave", "installer": "winget" },
+        { "name": "Chrome", "id": "Google.Chrome", "installer": "winget" },
+        { "name": "Helium", "id": "ImputNet.Helium", "installer": "winget" }
+      ]
+    },
+    {
+      "key": "mailClient",
+      "name": "Mail client",
+      "allowMultiple": true,
+      "items": [
+        { "name": "Thunderbird", "id": "Mozilla.Thunderbird", "installer": "winget" },
+        {
+          "name": "Fastmail",
+          "id": "Fastmail.Direct",
+          "installer": "direct",
+          "url": "https://www.fastmail.com/download/windows/x64/",
+          "fileName": "FastmailSetup.exe",
+          "arguments": "/S"
+        },
+        { "name": "Proton Mail", "id": "Proton.ProtonMail", "installer": "winget" },
+        { "name": "Tutanota", "id": "Tutanota.Tutanota", "installer": "winget" }
+      ]
+    },
+    {
+      "key": "messengers",
+      "name": "Messengers",
+      "allowMultiple": true,
+      "items": [
+        { "name": "Discord", "id": "Discord.Discord", "installer": "winget" },
+        { "name": "Signal", "id": "OpenWhisperSystems.Signal", "installer": "winget" },
+        { "name": "Telegram", "id": "Telegram.TelegramDesktop", "installer": "winget" },
+        { "name": "Element", "id": "Element.Element", "installer": "winget" },
+        { "name": "WhatsApp", "id": "WhatsApp.WhatsApp", "installer": "winget" }
+      ]
+    },
+    {
+      "key": "utilities",
+      "name": "Utilities",
+      "allowMultiple": true,
+      "items": [
+        {
+          "name": "PowerToys",
+          "id": "Microsoft.PowerToys",
+          "installer": "winget",
+          "description": "power-user tools"
+        },
+        {
+          "name": "7-Zip",
+          "id": "7zip.7zip",
+          "installer": "winget",
+          "description": "archive handling"
+        },
+        {
+          "name": "BCUninstaller",
+          "id": "Klocman.BulkCrapUninstaller",
+          "installer": "winget",
+          "description": "bulk uninstall cleanup"
+        },
+        {
+          "name": "VLC",
+          "id": "VideoLAN.VLC",
+          "installer": "winget",
+          "description": "media playback"
+        },
+        {
+          "name": "HWiNFO",
+          "id": "REALiX.HWiNFO",
+          "installer": "winget",
+          "description": "hardware telemetry"
+        },
+        {
+          "name": "NVCleanInstall",
+          "id": "TechPowerUp.NVCleanstall",
+          "installer": "winget",
+          "description": "lean NVIDIA driver installs"
+        },
+        {
+          "name": "Ditto",
+          "id": "Ditto.Ditto",
+          "installer": "winget",
+          "description": "clipboard history"
+        },
+        {
+          "name": "Everything",
+          "id": "voidtools.Everything",
+          "installer": "winget",
+          "description": "fast file search"
+        }
+      ]
+    }
+  ]
+}

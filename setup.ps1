@@ -15,6 +15,14 @@ $script:SetupScript = $PSCommandPath
 . "$script:RootDir/lib/Link.ps1"
 . "$script:RootDir/lib/Registry.ps1"
 . "$script:RootDir/lib/Prompt.ps1"
+. "$script:RootDir/lib/Reboot.ps1"
+
+$helpersDir = "$script:RootDir/helpers"
+if (Test-Path $helpersDir) {
+    Get-ChildItem "$helpersDir/*.ps1" | Sort-Object Name | ForEach-Object {
+        . $_.FullName
+    }
+}
 
 $stateFile = "$env:USERPROFILE\.win-setup\state.json"
 Load-State $stateFile

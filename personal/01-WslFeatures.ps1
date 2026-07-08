@@ -1,5 +1,5 @@
 function Step-WslFeatures {
-    if (Test-StateCompleted "01-WslFeatures") { return }
+    if (Test-StateCompleted "Personal.WslFeatures") { return }
     Write-Log "Enabling WSL and Virtual Machine Platform..." "INFO"
 
     $needsReboot = $false
@@ -11,9 +11,10 @@ function Step-WslFeatures {
         }
     }
 
-    Set-StateCompleted "01-WslFeatures"
+    Set-StateCompleted "Personal.WslFeatures"
 
     if ($needsReboot) {
+        Set-StateValue "rebootRequired" $true
         Write-Log "WSL features enabled, but a reboot is required before WSL will work." "WARN"
         Write-Log "  Reboot manually when setup finishes, then WSL/Ubuntu will be usable." "WARN"
     }

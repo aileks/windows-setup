@@ -1,5 +1,5 @@
 function Step-DevSettings {
-    if (Test-StateCompleted "02-DevSettings") { return }
+    if (Test-StateCompleted "Personal.DevSettings") { return }
     Write-Log "Enabling developer settings: symlinks, long paths, sudo..." "INFO"
 
     Set-RegistryBatch @{
@@ -21,7 +21,7 @@ function Step-DevSettings {
         Write-Log "  sudo command not found; Sudo for Windows requires Windows 11 24H2+." "WARN"
     }
 
-    Set-StateCompleted "02-DevSettings"
+    Set-StateCompleted "Personal.DevSettings"
     Write-Log "Developer settings processed" "SUCCESS"
 }
 Step-DevSettings

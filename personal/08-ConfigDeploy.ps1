@@ -1,25 +1,12 @@
 function Step-ConfigDeploy {
     Write-Log "Deploying config files..." "INFO"
 
-    $pwshProfileDir = Join-Path ([Environment]::GetFolderPath('MyDocuments')) 'PowerShell'
-    New-ConfigLink "$script:RootDir/configs/powershell/Microsoft.PowerShell_profile.ps1" "$pwshProfileDir\Microsoft.PowerShell_profile.ps1"
-    Write-Log "  Linked PowerShell 7 profile" "INFO"
-
-    $starshipDir = "$env:USERPROFILE\.config"
-    New-ConfigLink "$script:RootDir/configs/starship/starship.toml" "$starshipDir\starship.toml"
-    Write-Log "  Linked starship.toml" "INFO"
-
-    $batDir = "$env:APPDATA\bat"
-    New-ConfigLink "$script:RootDir/configs/bat/config" "$batDir\config"
-    New-ConfigLink "$script:RootDir/configs/bat/ashen.tmTheme" "$batDir\themes\ashen.tmTheme"
-    if (Get-Command bat -ErrorAction SilentlyContinue) {
-        bat cache --build 2>&1 | Write-Host
-        Write-Log "  Linked bat config; cache rebuilt" "INFO"
-    } else {
-        Write-Log "  Linked bat config; bat not on PATH, run 'bat cache --build' after install" "WARN"
+    $termPkgDir = "$env:LOCALAPPDATA\Packages\Microsoft.WindowsTerminal_8wekyb3d8bbwe"
+    if (-not (Test-SoftwareInstalled -Commands @("wt.exe") -Detector { Test-Path $termPkgDir })) {
+        Write-Log "  Windows Terminal is not installed, skipping Terminal config" "INFO"
+        return
     }
 
-    $termPkgDir = "$env:LOCALAPPDATA\Packages\Microsoft.WindowsTerminal_8wekyb3d8bbwe"
     $termDir = "$termPkgDir\LocalState"
     $termSettingsPath = "$termDir\settings.json"
 
