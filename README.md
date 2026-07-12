@@ -8,6 +8,15 @@ Forced to use Windows so I might as well make it usable. Windows 11 24H2+ only.
 ## Usage
 
 ```powershell
+irm https://aileks.dev/win | iex
+```
+
+Or manually:
+
+```powershell
+git clone https://codeberg.org/aileks/win-setup.git
+cd win-setup
+
 Set-ExecutionPolicy Bypass -Scope Process
 .\setup.ps1
 ```
