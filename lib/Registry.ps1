@@ -1,53 +1,143 @@
-$script:RegistryBackupPath = ""
-$script:RegistryBackup = @()
+$script:RegistryBackedUpPaths = @{}
 
-function Initialize-RegistryBackup {
+function Get-SetupRegistryBackupTargets {
+    @(
+        "HKLM:\SYSTEM\CurrentControlSet\Control\FileSystem"
+        "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\AppModelUnlock"
+        "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\Advanced"
+        "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Search"
+        "HKLM:\SOFTWARE\Policies\Microsoft\Dsh"
+        "HKCU:\SOFTWARE\Policies\Microsoft\Windows\Explorer"
+        "HKCU:\SOFTWARE\Policies\Microsoft\Windows\WindowsCopilot"
+        "HKLM:\SOFTWARE\Policies\Microsoft\Windows\Windows Search"
+        "HKCU:\Software\Classes\CLSID\{86ca1aa0-34aa-4e8b-a509-50c905bae2a2}\InprocServer32"
+        "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\StuckRects3"
+        "HKLM:\SOFTWARE\Policies\Microsoft\Windows\DataCollection"
+        "HKLM:\SOFTWARE\Policies\Microsoft\Windows\AdvertisingInfo"
+        "HKLM:\SOFTWARE\Policies\Microsoft\Windows\AppCompat"
+        "HKLM:\SOFTWARE\Policies\Microsoft\SQMClient\Windows"
+        "HKLM:\SOFTWARE\Policies\Microsoft\Windows\Windows Error Reporting"
+        "HKLM:\SOFTWARE\Policies\Microsoft\Windows\DeliveryOptimization"
+        "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\AdvertisingInfo"
+        "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Privacy"
+        "HKLM:\SOFTWARE\Policies\Microsoft\Windows\CloudContent"
+        "HKCU:\SOFTWARE\Policies\Microsoft\Windows\CloudContent"
+        "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\ContentDeliveryManager"
+        "HKLM:\SOFTWARE\Policies\Microsoft\Windows\System"
+        "HKCU:\SOFTWARE\Microsoft\Clipboard"
+        "HKLM:\SOFTWARE\Policies\Microsoft\InputPersonalization"
+        "HKLM:\SOFTWARE\Policies\Microsoft\Windows\LocationAndSensors"
+        "HKCU:\SOFTWARE\Microsoft\Siuf\Rules"
+        "HKCU:\SOFTWARE\Microsoft\Speech_OneCore\Settings\OnlineSpeechPrivacy"
+        "HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsAI"
+        "HKCU:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Fonts"
+        "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System"
+    )
+}
+
+function ConvertTo-NativeRegistryPath {
     param([Parameter(Mandatory)][string]$Path)
 
-    $script:RegistryBackupPath = $Path
-    if (Test-Path -LiteralPath $Path) {
-        try {
-            $script:RegistryBackup = @(Get-Content $Path -Raw | ConvertFrom-Json)
-        } catch {
-            $corruptPath = "$Path.corrupt-$(Get-Date -Format 'yyyyMMdd-HHmmss')"
-            Move-Item -LiteralPath $Path -Destination $corruptPath
-            $script:RegistryBackup = @()
+    if ($Path -notmatch "^(HKLM|HKCU):\\(.+)$") {
+        throw "Unsupported registry path: $Path"
+    }
+    "$($Matches[1])\$($Matches[2])"
+}
+
+function ConvertTo-RegFileRegistryPath {
+    param([Parameter(Mandatory)][string]$Path)
+
+    $nativePath = ConvertTo-NativeRegistryPath $Path
+    if ($nativePath.StartsWith("HKLM\")) {
+        return "HKEY_LOCAL_MACHINE\" + $nativePath.Substring(5)
+    }
+    "HKEY_CURRENT_USER\" + $nativePath.Substring(5)
+}
+
+function Get-MissingRegistryKeyFileContent {
+    param([Parameter(Mandatory)][string]$Path)
+
+    $regFilePath = ConvertTo-RegFileRegistryPath $Path
+    "Windows Registry Editor Version 5.00`r`n`r`n[-$regFilePath]`r`n"
+}
+
+function Get-RegistryBackupFilePath {
+    param(
+        [Parameter(Mandatory)][string]$BackupDirectory,
+        [Parameter(Mandatory)][string]$RegistryPath
+    )
+
+    $segments = (ConvertTo-NativeRegistryPath $RegistryPath) -split "\\"
+    $directory = $BackupDirectory
+    for ($i = 0; $i -lt $segments.Count - 1; $i++) {
+        $directory = Join-Path $directory $segments[$i]
+    }
+    $leaf = $segments[-1] -replace '[<>:"/|?*]', '_'
+    Join-Path $directory "$leaf.reg"
+}
+
+function Export-RegistryKey {
+    param(
+        [Parameter(Mandatory)][string]$Path,
+        [Parameter(Mandatory)][string]$BackupDirectory
+    )
+
+    try {
+        $nativePath = ConvertTo-NativeRegistryPath $Path
+        $destination = Get-RegistryBackupFilePath -BackupDirectory $BackupDirectory -RegistryPath $Path
+        $parent = Split-Path $destination -Parent
+        if (-not (Test-Path -LiteralPath $parent)) {
+            New-Item -Path $parent -ItemType Directory -Force | Out-Null
         }
+
+        if (Test-Path $Path) {
+            $output = @(& reg.exe export $nativePath $destination /y 2>&1)
+            $exitCode = $LASTEXITCODE
+            if ($exitCode -ne 0) {
+                foreach ($line in $output) { Write-Log "  $line" "ERROR" }
+                Write-Log "Registry export failed for $nativePath with exit code $exitCode" "ERROR"
+                return $false
+            }
+        } else {
+            $content = Get-MissingRegistryKeyFileContent $Path
+            [System.IO.File]::WriteAllText($destination, $content, [System.Text.Encoding]::Unicode)
+        }
+        return $true
+    } catch {
+        Write-Log "Registry export failed for ${Path}: $($_.Exception.Message)" "ERROR"
+        return $false
     }
 }
 
-function Backup-RegistryValue {
-    param([string]$Path, [string]$Name)
+function New-RegistryBackup {
+    param(
+        [Parameter(Mandatory)][string]$Root,
+        [Parameter(Mandatory)][string[]]$Paths
+    )
 
-    if ([string]::IsNullOrWhiteSpace($script:RegistryBackupPath)) { return }
-    if (@($script:RegistryBackup | Where-Object { $_.path -eq $Path -and $_.name -eq $Name }).Count -gt 0) { return }
-
-    $propertyName = if ($Name -eq "(Default)") { "" } else { $Name }
-    $entry = [ordered]@{ path = $Path; name = $Name; existed = $false; value = $null; kind = $null }
-    try {
-        if (Test-Path $Path) {
-            $key = Get-Item -Path $Path
-            $entry.existed = $null -ne $key.GetValue($propertyName, $null, [Microsoft.Win32.RegistryValueOptions]::DoNotExpandEnvironmentNames)
-            if ($entry.existed) {
-                $entry.value = $key.GetValue($propertyName, $null, [Microsoft.Win32.RegistryValueOptions]::DoNotExpandEnvironmentNames)
-                $entry.kind = $key.GetValueKind($propertyName).ToString()
-            }
+    $backupDirectory = Join-Path $Root (Get-Date -Format "yyyyMMdd-HHmmss-fff")
+    New-Item -Path $backupDirectory -ItemType Directory -Force | Out-Null
+    $script:RegistryBackedUpPaths = @{}
+    $succeeded = $true
+    $exported = 0
+    foreach ($path in @($Paths | Select-Object -Unique)) {
+        if (Export-RegistryKey -Path $path -BackupDirectory $backupDirectory) {
+            $exported++
+            $script:RegistryBackedUpPaths[$path] = $true
+        } else {
+            $succeeded = $false
         }
-    } catch {}
-
-    $script:RegistryBackup += [PSCustomObject]$entry
-    $tempPath = "$script:RegistryBackupPath.tmp"
-    $script:RegistryBackup | ConvertTo-Json -Depth 6 | Set-Content $tempPath -Encoding UTF8
-    if (Test-Path -LiteralPath $script:RegistryBackupPath) {
-        $backupPath = "$script:RegistryBackupPath.replace"
-        try {
-            [System.IO.File]::Replace($tempPath, $script:RegistryBackupPath, $backupPath)
-        } finally {
-            if (Test-Path -LiteralPath $backupPath) { Remove-Item -LiteralPath $backupPath -Force }
-        }
-    } else {
-        [System.IO.File]::Move($tempPath, $script:RegistryBackupPath)
     }
+
+    if ($succeeded) {
+        Write-Log "Exported $exported registry subtrees to $backupDirectory" "SUCCESS"
+    }
+    [PSCustomObject]@{ Success = $succeeded; Path = $backupDirectory; Count = $exported }
+}
+
+function Test-RegistryPathBackedUp {
+    param([Parameter(Mandatory)][string]$Path)
+    $script:RegistryBackedUpPaths.ContainsKey($Path)
 }
 
 function Set-RegistrySafe {
@@ -62,7 +152,9 @@ function Set-RegistrySafe {
 
     $success = $false
     try {
-        Backup-RegistryValue -Path $Path -Name $Name
+        if (-not (Test-RegistryPathBackedUp $Path)) {
+            throw "Registry path was not included in the native backup: $Path"
+        }
         if (-not (Test-Path $Path)) {
             New-Item -Path $Path -Force | Out-Null
         }

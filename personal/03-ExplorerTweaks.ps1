@@ -41,7 +41,9 @@ function Invoke-ExplorerTweaks {
 
     $stuckRectsPath = "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\StuckRects3"
     try {
-        Backup-RegistryValue -Path $stuckRectsPath -Name "Settings"
+        if (-not (Test-RegistryPathBackedUp $stuckRectsPath)) {
+            throw "Taskbar registry path was not included in the native backup"
+        }
         $settings = (Get-ItemProperty -Path $stuckRectsPath -Name Settings -ErrorAction Stop).Settings
         if ($settings -and $settings.Length -gt 8) {
             $settings[8] = 3

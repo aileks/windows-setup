@@ -33,7 +33,6 @@ $stateFile = "$stateDir\state.json"
 $logPath = "$stateDir\setup.log"
 Load-State $stateFile | Out-Null
 Initialize-Log $logPath
-Initialize-RegistryBackup "$stateDir\registry-backup.json"
 
 if (-not (Test-WslPlatformEnabled)) {
     if (Ask-YesNo "WSL not enabled! Would you like to enable and reboot?" $true) {
@@ -52,6 +51,7 @@ if (Test-ResumingAfterReboot) {
 Write-Host ""
 Write-Host "win-setup changes Windows policies and privacy settings, installs software, links configs," -ForegroundColor Yellow
 Write-Host "configures Ubuntu, and may require another reboot. Existing configs are timestamp-backed up." -ForegroundColor Yellow
+Write-Host "Affected registry subtrees are exported to timestamped native .reg files before changes." -ForegroundColor Yellow
 Write-Host "Bitwarden SSH use disables the Windows OpenSSH Authentication Agent service." -ForegroundColor Yellow
 Write-Host ""
 if (-not (Ask-YesNo "Continue with setup?" $false)) {
@@ -81,6 +81,18 @@ try {
 if ((Get-StateValue "profileFingerprint") -ne $profileFingerprint) {
     Clear-StateCompleted
     Set-StateValue "profileFingerprint" $profileFingerprint
+}
+
+$registryActionIds = @("adwaita-font", "developer-tweaks", "explorer-tweaks", "privacy-tweaks", "komorebi")
+$registryBackupNeeded = @($registryActionIds | Where-Object { -not (Test-StateCompleted $_) }).Count -gt 0
+if ($registryBackupNeeded) {
+    $registryBackup = New-RegistryBackup -Root "$stateDir\registry-backups" -Paths @(Get-SetupRegistryBackupTargets)
+    if (-not $registryBackup.Success) {
+        Write-Log "Registry backup is incomplete. No setup actions were applied." "ERROR"
+        Read-Host "Press Enter to close"
+        exit 1
+    }
+    Set-StateValue "registryBackupPath" $registryBackup.Path
 }
 
 $actions = @(

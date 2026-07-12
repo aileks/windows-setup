@@ -5,15 +5,7 @@ Forced to use Windows so I might as well make it usable. Windows 11 24H2+ only.
 > [!IMPORTANT]
 > Keep this repository at its cloned path. Configs are symlinked where possible. Moving the repository leaves those links dangling.
 
-## Flow
-
-1. Run `setup.ps1` from Windows PowerShell.
-2. The script elevates itself.
-3. If WSL or Virtual Machine Platform is disabled, the script offers to enable them and reboot. A per-user `RunOnce` entry resumes setup after login.
-4. Read the disclaimer and confirm with `Continue with setup?`.
-5. Review the preselected optional software in the terminal UI.
-6. The script installs software, applies Windows tweaks, installs Ubuntu, pauses for Ubuntu user creation, and provisions the Linux environment.
-7. Reboot again when requested.
+## Usage
 
 ```powershell
 Set-ExecutionPolicy Bypass -Scope Process
@@ -31,7 +23,7 @@ Set-ExecutionPolicy Bypass -Scope Process
 - Keep local clipboard history while disabling cross-device clipboard sync.
 - Activate Ultimate Performance.
 
-Original registry values are recorded once in `%USERPROFILE%\.win-setup\registry-backup.json`. The script assumes the installed Windows edition honors diagnostic data level `0` as a complete opt-out.
+Before registry-backed setup actions run, the registry is backed up under `%USERPROFILE%\.win-setup\registry-backups\`.
 
 ## WSL
 
@@ -50,7 +42,6 @@ State and logs:
 
 - `%USERPROFILE%\.win-setup\state.json`
 - `%USERPROFILE%\.win-setup\setup.log`
-- `%USERPROFILE%\.win-setup\registry-backup.json`
+- `%USERPROFILE%\.win-setup\registry-backups\<timestamp>\**\*.reg`
 
 Successful actions are skipped on rerun. Changing files under `data/` or `configs/`, or changing optional selections reapplies the setup. Delete `state.json` to force a complete rerun.
-

@@ -84,6 +84,9 @@ Assert-True ($setupText.Contains("WSL not enabled! Would you like to enable and 
 Assert-True ($setupText.Contains("Continue with setup?")) "Setup confirmation is required"
 Assert-True ($setupText.Contains("Read-OptionalSoftwareTui")) "Full-screen optional software selection is required"
 Assert-True (-not $setupText.Contains("Read-CatalogCategorySelection")) "Numbered catalog selection must be removed"
+$registryBackupIndex = $setupText.IndexOf("New-RegistryBackup")
+$actionsIndex = $setupText.IndexOf('$actions = @(')
+Assert-True ($registryBackupIndex -ge 0 -and $registryBackupIndex -lt $actionsIndex) "Registry backup must run before setup actions"
 $developerText = Get-Content "$root\personal\02-DevSettings.ps1" -Raw
 foreach ($requiredText in @("LongPathsEnabled", "AllowDevelopmentWithoutDevLicense", "L2L:1", "R2R:1", "L2R:1", "R2L:1", "sudo config --enable normal")) {
     Assert-True ($developerText.Contains($requiredText)) "Developer tweaks must contain $requiredText"
@@ -160,6 +163,54 @@ Assert-True ($script:WingetArguments -contains "--id") "WinGet install must cons
 Assert-True ($script:WingetArguments -contains "--exact") "WinGet install must require an exact match"
 
 . "$root\lib\Registry.ps1"
+$registryTargets = @(Get-SetupRegistryBackupTargets)
+Assert-Equal $registryTargets.Count @($registryTargets | Select-Object -Unique).Count "Registry backup targets must be unique"
+foreach ($requiredTarget in @(
+    "HKLM:\SOFTWARE\Policies\Microsoft\Windows\DataCollection",
+    "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\Advanced",
+    "HKCU:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Fonts",
+    "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\StuckRects3",
+    "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System"
+)) {
+    Assert-True ($registryTargets -contains $requiredTarget) "Registry backup must include $requiredTarget"
+}
+$registrySourceFiles = @(
+    Get-ChildItem "$root\personal\*.ps1"
+    Get-Item "$root\helpers\Fonts.ps1"
+)
+$registrySourceText = ($registrySourceFiles | ForEach-Object { Get-Content $_.FullName -Raw }) -join "`n"
+$literalRegistryPaths = @([regex]::Matches($registrySourceText, '(?:HKLM|HKCU):\\[^"`\r\n]+') | ForEach-Object { $_.Value } | Select-Object -Unique)
+foreach ($literalPath in $literalRegistryPaths) {
+    Assert-True ($registryTargets -contains $literalPath) "Literal registry path must be backed up: $literalPath"
+}
+Assert-Equal "HKCU\Software\Test" (ConvertTo-NativeRegistryPath "HKCU:\Software\Test") "Native registry path conversion"
+Assert-Equal "HKEY_CURRENT_USER\Software\Test" (ConvertTo-RegFileRegistryPath "HKCU:\Software\Test") "REG file path conversion"
+$missingKeyContent = Get-MissingRegistryKeyFileContent "HKLM:\Software\Test"
+Assert-True ($missingKeyContent.Contains("[-HKEY_LOCAL_MACHINE\Software\Test]")) "Missing registry keys need deletion-form REG files"
+$backupFile = Get-RegistryBackupFilePath -BackupDirectory $tempRoot -RegistryPath "HKLM:\Software\Test"
+Assert-True ($backupFile.EndsWith("Test.reg")) "Registry backup files must use the REG extension"
+
+$script:ExportedRegistryPaths = @()
+function Export-RegistryKey {
+    param([string]$Path, [string]$BackupDirectory)
+    $script:ExportedRegistryPaths += $Path
+    return $true
+}
+$registryTempRoot = Join-Path $tempRoot "win-setup-registry-test-$([guid]::NewGuid())"
+try {
+    $registryResult = New-RegistryBackup -Root $registryTempRoot -Paths @("HKCU:\One", "HKCU:\Two", "HKCU:\One")
+    Assert-True $registryResult.Success "Mock registry backup must succeed"
+    Assert-Equal 2 $registryResult.Count "Registry backup must deduplicate targets"
+    Assert-Equal 2 $script:ExportedRegistryPaths.Count "Every unique registry target must be exported"
+    Assert-True (Test-Path -LiteralPath $registryResult.Path) "Registry backup directory must be created"
+    Assert-True (Test-RegistryPathBackedUp "HKCU:\One") "Exported registry targets must be marked as backed up"
+    Assert-True (-not (Test-RegistryPathBackedUp "HKCU:\Three")) "Unexported registry targets must not pass the backup guard"
+} finally {
+    if (Test-Path -LiteralPath $registryTempRoot) { Remove-Item -LiteralPath $registryTempRoot -Recurse -Force }
+}
+$unbackedWrite = Set-RegistrySafe -Path "HKCU:\Three" -Name "Value" -Value 1 -PassThru
+Assert-True (-not $unbackedWrite) "Registry writes without a native backup must fail"
+
 function Set-RegistrySafe {
     param([string]$Path, [string]$Name, $Value, [string]$Type, [switch]$PassThru)
     return $Name -ne "Bad"
@@ -174,7 +225,7 @@ $wslHelperText = Get-Content "$root\helpers\Wsl.ps1" -Raw
 Assert-True ($wslHelperText.Contains("github.com/albertony/npiperelay")) "npiperelay must use the maintained fork"
 Assert-True ($wslHelperText.Contains("--web-download")) "WSL must retry without Microsoft Store delivery"
 $fontHelperText = Get-Content "$root\helpers\Fonts.ps1" -Raw
-Assert-True ($fontHelperText.Contains("Set-RegistrySafe")) "Font registration must use registry backup handling"
+Assert-True ($fontHelperText.Contains("Set-RegistrySafe")) "Font registration must use the shared registry writer"
 function Get-WindowsOptionalFeature {
     param([switch]$Online, [string]$FeatureName)
     [PSCustomObject]@{ State = "Enabled" }
@@ -184,5 +235,10 @@ Assert-True (Test-WslPlatformEnabled) "WSL platform detection should require bot
 $implementationFiles = @($powerShellFiles | Where-Object { $_.DirectoryName -ne (Join-Path $root "tests") })
 $allPowerShellText = ($implementationFiles | ForEach-Object { Get-Content $_.FullName -Raw }) -join "`n"
 Assert-True (-not ($allPowerShellText -match "Ensure-Scoop|scoop install|Scoop Git")) "Windows setup must not depend on Scoop or Git"
+Assert-True (-not $allPowerShellText.Contains("registry-backup.json")) "Registry backup must not use JSON"
+
+$readme = Get-Content "$root\README.md" -Raw
+Assert-True ($readme.Contains("registry-backups\")) "README must document native registry backups"
+Assert-True (-not $readme.Contains("registry-backup.json")) "README must not document JSON registry backup"
 
 Write-Host "$script:Passed assertions passed" -ForegroundColor Green
