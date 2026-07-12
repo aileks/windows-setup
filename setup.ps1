@@ -10,33 +10,155 @@ if (-not ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdenti
 
 $script:RootDir = $PSScriptRoot
 $script:SetupScript = $PSCommandPath
-. "$script:RootDir/lib/State.ps1"
-. "$script:RootDir/lib/Logger.ps1"
-. "$script:RootDir/lib/Link.ps1"
-. "$script:RootDir/lib/Registry.ps1"
-. "$script:RootDir/lib/Prompt.ps1"
-. "$script:RootDir/lib/Reboot.ps1"
+$script:TuiActive = $false
 
-$helpersDir = "$script:RootDir/helpers"
-if (Test-Path $helpersDir) {
-    Get-ChildItem "$helpersDir/*.ps1" | Sort-Object Name | ForEach-Object {
-        . $_.FullName
-    }
+foreach ($file in @(
+    "lib/State.ps1",
+    "lib/Logger.ps1",
+    "lib/Link.ps1",
+    "lib/Registry.ps1",
+    "lib/Prompt.ps1",
+    "lib/Reboot.ps1",
+    "lib/Result.ps1",
+    "lib/Tui.ps1"
+)) {
+    . "$script:RootDir/$file"
 }
 
-$stateFile = "$env:USERPROFILE\.win-setup\state.json"
-Load-State $stateFile
+Get-ChildItem "$script:RootDir/helpers/*.ps1" | Sort-Object Name | ForEach-Object { . $_.FullName }
+Get-ChildItem "$script:RootDir/personal/*.ps1" | Sort-Object Name | ForEach-Object { . $_.FullName }
 
-$logPath = "$env:USERPROFILE\.win-setup\setup.log"
+$stateDir = "$env:USERPROFILE\.win-setup"
+$stateFile = "$stateDir\state.json"
+$logPath = "$stateDir\setup.log"
+Load-State $stateFile | Out-Null
 Initialize-Log $logPath
+Initialize-RegistryBackup "$stateDir\registry-backup.json"
 
-$steps = Get-ChildItem "$script:RootDir/steps/*.ps1" | Sort-Object Name
-foreach ($step in $steps) {
-    try {
-        . $step.FullName
-    } catch {
-        Write-Log "Step $($step.Name) failed: $($_.Exception.Message)" "ERROR"
+if (-not (Test-WslPlatformEnabled)) {
+    if (Ask-YesNo "WSL not enabled! Would you like to enable and reboot?" $true) {
+        if (-not (Enable-WslPlatformAndReboot)) { exit 1 }
     }
+    Write-Log "Setup requires WSL. No changes were applied." "WARN"
+    exit 0
 }
 
-Write-Log "Setup complete." "SUCCESS"
+if (Test-ResumingAfterReboot) {
+    Clear-ResumeAfterReboot
+    Set-StateValue "rebootRequired" $false
+    Write-Log "Resumed after WSL enablement reboot" "INFO"
+}
+
+Write-Host ""
+Write-Host "win-setup changes Windows policies and privacy settings, installs software, links configs," -ForegroundColor Yellow
+Write-Host "configures Ubuntu, and may require another reboot. Existing configs are timestamp-backed up." -ForegroundColor Yellow
+Write-Host "Bitwarden SSH use disables the Windows OpenSSH Authentication Agent service." -ForegroundColor Yellow
+Write-Host ""
+if (-not (Ask-YesNo "Continue with setup?" $false)) {
+    Write-Log "Setup cancelled before changes" "INFO"
+    exit 0
+}
+
+$catalog = Get-SoftwareCatalog
+$selection = Read-OptionalSoftwareTui -Items @($catalog.optional)
+if ($selection.Cancelled) {
+    Write-Log "Setup cancelled from software selection" "INFO"
+    exit 0
+}
+$optionalItems = @($selection.Items)
+
+$profileFiles = @(Get-ChildItem "$script:RootDir/data", "$script:RootDir/configs", "$script:RootDir/lib", `
+    "$script:RootDir/helpers", "$script:RootDir/personal" -File -Recurse | Sort-Object FullName)
+$profileFiles += Get-Item -LiteralPath $PSCommandPath
+$profileMaterial = ($profileFiles | ForEach-Object { "{0}:{1}" -f $_.FullName, (Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash }) -join "|"
+$sha256 = [System.Security.Cryptography.SHA256]::Create()
+try {
+    $profileBytes = [Text.Encoding]::UTF8.GetBytes($profileMaterial + "|" + ((@($optionalItems.id) | Sort-Object) -join ","))
+    $profileFingerprint = ([BitConverter]::ToString($sha256.ComputeHash($profileBytes))).Replace("-", "")
+} finally {
+    $sha256.Dispose()
+}
+if ((Get-StateValue "profileFingerprint") -ne $profileFingerprint) {
+    Clear-StateCompleted
+    Set-StateValue "profileFingerprint" $profileFingerprint
+}
+
+$actions = @(
+    [PSCustomObject]@{ Id = "windows-software"; Name = "Windows software"; Run = { Invoke-SoftwareInstall -OptionalItems $optionalItems } },
+    [PSCustomObject]@{ Id = "windows-cli"; Name = "Windows fallback CLI tools"; Run = { Invoke-CliToolsInstall } },
+    [PSCustomObject]@{ Id = "npiperelay"; Name = "Bitwarden SSH relay"; Run = { Install-NpipeRelay } },
+    [PSCustomObject]@{ Id = "adwaita-font"; Name = "Adwaita Mono Nerd Font"; Run = { Invoke-NerdFontSetup } },
+    [PSCustomObject]@{ Id = "developer-tweaks"; Name = "Developer mode, paths, symlinks, and sudo"; Run = { Invoke-DeveloperTweaks } },
+    [PSCustomObject]@{ Id = "explorer-tweaks"; Name = "Explorer and taskbar tweaks"; Run = { Invoke-ExplorerTweaks } },
+    [PSCustomObject]@{ Id = "privacy-tweaks"; Name = "Privacy and telemetry policies"; Run = { Invoke-PrivacyTweaks } },
+    [PSCustomObject]@{ Id = "power-plan"; Name = "Ultimate Performance power plan"; Run = { Invoke-PowerPlanTweaks } },
+    [PSCustomObject]@{ Id = "bitwarden-ssh"; Name = "Windows SSH agent handoff"; Run = { Disable-WindowsOpenSshAgent } },
+    [PSCustomObject]@{ Id = "ubuntu-environment"; Name = "Ubuntu daily environment"; Run = { Invoke-WslBootstrap } },
+    [PSCustomObject]@{ Id = "vscode-wsl"; Name = "VS Code WSL extension"; Run = { Install-VsCodeWslExtension } },
+    [PSCustomObject]@{ Id = "komorebi"; Name = "Komorebi configuration"; Run = { Invoke-KomorebiSetup } },
+    [PSCustomObject]@{ Id = "configs"; Name = "Windows config deployment"; Run = { Invoke-ConfigDeploy } },
+    [PSCustomObject]@{ Id = "powershell-profile"; Name = "Minimal PowerShell profile"; Run = { Invoke-PowerShellProfileSetup } }
+)
+
+$results = @($actions | ForEach-Object { New-SetupResult -Id $_.Id -Name $_.Name })
+Show-SetupProgress -Results $results
+
+for ($i = 0; $i -lt $actions.Count; $i++) {
+    $action = $actions[$i]
+    $result = $results[$i]
+
+    if (Test-StateCompleted $action.Id) {
+        $result.Status = "Skipped"
+        $result.Message = "already completed"
+        Show-SetupProgress -Results $results
+        continue
+    }
+
+    $result.Status = "Running"
+    $rebootWasRequired = (Get-StateValue "rebootRequired") -eq $true
+    Show-SetupProgress -Results $results
+    try {
+        $success = & $action.Run
+        if ($success -eq $true) {
+            $result.Status = "Success"
+        } else {
+            $result.Status = "Failed"
+            $result.ExitCode = 1
+            $result.Message = "see setup log"
+        }
+    } catch {
+        $result.Status = "Failed"
+        $result.ExitCode = 1
+        $result.Message = $_.Exception.Message
+        Write-Log "$($action.Name) failed: $($_.Exception.Message)" "ERROR"
+    }
+
+    $rebootIsRequired = (Get-StateValue "rebootRequired") -eq $true
+    if (-not $rebootWasRequired -and $rebootIsRequired) { $result.RebootRequired = $true }
+    Set-StateResult $result
+    Show-SetupProgress -Results $results
+}
+
+try {
+    Stop-Process -Name explorer -Force -ErrorAction SilentlyContinue
+} catch {
+    Write-Log "Explorer restart failed: $($_.Exception.Message)" "WARN"
+}
+
+$failed = @($results | Where-Object { $_.Status -eq "Failed" })
+Show-SetupResults -Results $results -LogPath $logPath
+
+if ($failed.Count -gt 0) {
+    Write-Log "Setup finished with $($failed.Count) failed required actions" "ERROR"
+    Read-Host "Press Enter to close"
+    exit 1
+}
+
+Write-Log "Setup complete" "SUCCESS"
+if ((Get-StateValue "rebootRequired") -eq $true) {
+    if (Ask-YesNo "A reboot is required. Reboot now?" $true) {
+        Restart-Computer
+    } else {
+        Write-Log "Reboot skipped" "WARN"
+    }
+}

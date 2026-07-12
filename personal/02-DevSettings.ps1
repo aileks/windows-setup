@@ -1,27 +1,29 @@
-function Step-DevSettings {
-    if (Test-StateCompleted "Personal.DevSettings") { return }
-    Write-Log "Enabling developer settings: symlinks, long paths, sudo..." "INFO"
-
-    Set-RegistryBatch @{
+function Invoke-DeveloperTweaks {
+    Write-Log "Applying developer settings..." "INFO"
+    $registryOk = Set-RegistryBatch @{
         "HKLM:\SYSTEM\CurrentControlSet\Control\FileSystem" = @{
             "LongPathsEnabled" = @{ Value = 1 }
         }
-    }
-
-    fsutil behavior set SymlinkEvaluation L2L:1 R2R:1 L2R:1 R2L:1 | Out-Null
-
-    if (Get-Command sudo -ErrorAction SilentlyContinue) {
-        sudo config --enable normal 2>&1 | Write-Host
-        if ($LASTEXITCODE -eq 0) {
-            Write-Log "Sudo enabled in normal mode" "SUCCESS"
-        } else {
-            Write-Log "  sudo config returned exit code $LASTEXITCODE; enable sudo manually in Windows Settings." "WARN"
+        "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\AppModelUnlock" = @{
+            "AllowDevelopmentWithoutDevLicense" = @{ Value = 1 }
         }
-    } else {
-        Write-Log "  sudo command not found; Sudo for Windows requires Windows 11 24H2+." "WARN"
     }
 
-    Set-StateCompleted "Personal.DevSettings"
-    Write-Log "Developer settings processed" "SUCCESS"
+    $fsutilOutput = @(& fsutil behavior set SymlinkEvaluation L2L:1 R2R:1 L2R:1 R2L:1 2>&1)
+    $fsutilOk = $LASTEXITCODE -eq 0
+    foreach ($line in $fsutilOutput) { Write-Log "  $line" "INFO" }
+    if (-not $fsutilOk) { Write-Log "Symlink evaluation setup failed" "ERROR" }
+
+    $sudoOk = $true
+    if (Get-Command sudo -ErrorAction SilentlyContinue) {
+        $sudoOutput = @(& sudo config --enable normal 2>&1)
+        $sudoOk = $LASTEXITCODE -eq 0
+        foreach ($line in $sudoOutput) { Write-Log "  $line" "INFO" }
+        if (-not $sudoOk) { Write-Log "Sudo for Windows setup failed" "ERROR" }
+    } else {
+        Write-Log "Sudo for Windows is unavailable on this build" "ERROR"
+        $sudoOk = $false
+    }
+
+    return $registryOk -and $fsutilOk -and $sudoOk
 }
-Step-DevSettings

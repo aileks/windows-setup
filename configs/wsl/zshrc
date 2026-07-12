@@ -1,0 +1,17 @@
+typeset -U path PATH
+path=("$HOME/.local/bin" $path)
+export EDITOR="code --wait"
+export VISUAL="$EDITOR"
+
+HISTFILE="$HOME/.zsh_history"
+HISTSIZE=50000
+SAVEHIST=50000
+setopt append_history hist_ignore_dups share_history
+bindkey -v
+autoload -Uz compinit && compinit
+
+[[ -r /usr/share/doc/fzf/examples/key-bindings.zsh ]] && source /usr/share/doc/fzf/examples/key-bindings.zsh
+[[ -r "$HOME/.config/win-setup/bitwarden-ssh-agent.zsh" ]] && source "$HOME/.config/win-setup/bitwarden-ssh-agent.zsh"
+
+command -v zoxide >/dev/null && eval "$(zoxide init zsh)"
+command -v starship >/dev/null && eval "$(starship init zsh)"

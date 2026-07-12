@@ -1,43 +1,58 @@
-function Step-ExplorerTweaks {
-    if (Test-StateCompleted "Personal.ExplorerTweaks") { return }
-    Write-Log "Applying Explorer power-user tweaks..." "INFO"
-
-    Set-RegistryBatch @{
+function Invoke-ExplorerTweaks {
+    Write-Log "Applying Explorer and taskbar settings..." "INFO"
+    $ok = Set-RegistryBatch @{
         "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\Advanced" = @{
             "HideFileExt"                   = @{ Value = 0 }
             "Hidden"                        = @{ Value = 1 }
             "ShowSyncProviderNotifications" = @{ Value = 0 }
             "ShowRecentFiles"               = @{ Value = 0 }
-            "ShowFrequentFiles"             = @{ Value = 0 }
+            "ShowFrequentFiles"              = @{ Value = 0 }
             "TaskbarAl"                     = @{ Value = 1 }
+            "TaskbarDa"                     = @{ Value = 0 }
+            "TaskbarMn"                     = @{ Value = 0 }
+            "ShowTaskViewButton"            = @{ Value = 0 }
+            "ShowCopilotButton"             = @{ Value = 0 }
             "DisabledHotkeys"               = @{ Value = "hjklqmotpxynf1234567"; Type = "String" }
+        }
+        "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Search" = @{
+            "SearchboxTaskbarMode" = @{ Value = 0 }
+        }
+        "HKLM:\SOFTWARE\Policies\Microsoft\Dsh" = @{
+            "AllowNewsAndInterests" = @{ Value = 0 }
         }
         "HKCU:\SOFTWARE\Policies\Microsoft\Windows\Explorer" = @{
             "DisableSearchBoxSuggestions" = @{ Value = 1 }
         }
+        "HKCU:\SOFTWARE\Policies\Microsoft\Windows\WindowsCopilot" = @{
+            "TurnOffWindowsCopilot" = @{ Value = 1 }
+        }
+        "HKLM:\SOFTWARE\Policies\Microsoft\Windows\Windows Search" = @{
+            "AllowCortana"             = @{ Value = 0 }
+            "AllowCloudSearch"         = @{ Value = 0 }
+            "AllowSearchToUseLocation" = @{ Value = 0 }
+            "ConnectedSearchUseWeb"    = @{ Value = 0 }
+            "DisableWebSearch"         = @{ Value = 1 }
+        }
     }
 
-    Set-RegistrySafe -Path  "HKCU:\Software\Classes\CLSID\{86ca1aa0-34aa-4e8b-a509-50c905bae2a2}\InprocServer32" -Name "(Default)" -Value "" -Type String
+    if (-not (Set-RegistrySafe -Path "HKCU:\Software\Classes\CLSID\{86ca1aa0-34aa-4e8b-a509-50c905bae2a2}\InprocServer32" -Name "(Default)" -Value "" -Type String -PassThru)) {
+        $ok = $false
+    }
 
     $stuckRectsPath = "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\StuckRects3"
     try {
-        if (-not (Test-Path $stuckRectsPath)) {
-            New-Item -Path $stuckRectsPath -Force | Out-Null
-        }
-
+        Backup-RegistryValue -Path $stuckRectsPath -Name "Settings"
         $settings = (Get-ItemProperty -Path $stuckRectsPath -Name Settings -ErrorAction Stop).Settings
         if ($settings -and $settings.Length -gt 8) {
             $settings[8] = 3
             Set-ItemProperty -Path $stuckRectsPath -Name Settings -Value ([byte[]]$settings)
-            Write-Log "  Enabled taskbar auto-hide" "INFO"
         } else {
-            Write-Log "  Could not enable taskbar auto-hide; StuckRects3 Settings was missing or malformed." "WARN"
+            Write-Log "Taskbar auto-hide settings were missing or malformed" "WARN"
+            $ok = $false
         }
     } catch {
-        Write-Log "  Failed to enable taskbar auto-hide: $($_.Exception.Message)" "WARN"
+        Write-Log "Taskbar auto-hide failed: $($_.Exception.Message)" "WARN"
+        $ok = $false
     }
-
-    Set-StateCompleted "Personal.ExplorerTweaks"
-    Write-Log "Explorer configured" "SUCCESS"
+    return $ok
 }
-Step-ExplorerTweaks

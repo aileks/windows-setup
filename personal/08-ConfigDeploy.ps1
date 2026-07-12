@@ -1,16 +1,19 @@
-function Step-ConfigDeploy {
+function Invoke-ConfigDeploy {
     Write-Log "Deploying config files..." "INFO"
+    $ok = $true
 
     New-ConfigLink "$script:RootDir/configs/starship/starship.toml" "$env:USERPROFILE\.config\starship.toml"
     New-ConfigLink "$script:RootDir/configs/bat/config" "$env:APPDATA\bat\config"
     New-ConfigLink "$script:RootDir/configs/bat/ashen.tmTheme" "$env:APPDATA\bat\themes\ashen.tmTheme"
 
     if (Test-SoftwareInstalled -Commands @("bat")) {
-        bat cache --build 2>&1 | Write-Host
+        $output = @(bat cache --build 2>&1)
+        foreach ($line in $output) { Write-Log "  $line" "INFO" }
         if ($LASTEXITCODE -eq 0) {
             Write-Log "  Rebuilt bat cache" "INFO"
         } else {
             Write-Log "  bat cache rebuild failed with exit code $LASTEXITCODE" "WARN"
+            $ok = $false
         }
     }
 
@@ -20,6 +23,8 @@ function Step-ConfigDeploy {
         $termSettingsPath = "$termDir\settings.json"
 
         if (Test-Path $termSettingsPath) {
+            $settingsBackup = "$termSettingsPath.bak-$(Get-Date -Format 'yyyyMMdd-HHmmss')"
+            Copy-Item -LiteralPath $termSettingsPath -Destination $settingsBackup
             $settings = Get-Content $termSettingsPath -Raw | ConvertFrom-Json
 
             $ashenScheme = Get-Content "$script:RootDir/configs/windows-terminal/settings.json" -Raw | ConvertFrom-Json
@@ -31,6 +36,9 @@ function Step-ConfigDeploy {
                 $settings.schemes += $ashenColors
             }
 
+            if (-not $settings.profiles) {
+                $settings | Add-Member -NotePropertyName "profiles" -NotePropertyValue ([PSCustomObject]@{}) -Force
+            }
             if (-not $settings.profiles.defaults) {
                 $settings.profiles | Add-Member -NotePropertyName "defaults" -NotePropertyValue @{} -Force
             }
@@ -39,7 +47,7 @@ function Step-ConfigDeploy {
             $defaults | Add-Member -NotePropertyName "useAcrylic" -NotePropertyValue $true -Force
             $defaults | Add-Member -NotePropertyName "opacity" -NotePropertyValue 85 -Force
             $monoFontFace = Get-SelectedNerdFontMonoFace
-            if (-not $monoFontFace) { $monoFontFace = "CommitMono Nerd Font Mono" }
+            if (-not $monoFontFace) { $monoFontFace = "AdwaitaMono Nerd Font Mono" }
             $defaults | Add-Member -NotePropertyName "font" -NotePropertyValue @{ face = $monoFontFace; size = 13 } -Force
             $defaults | Add-Member -NotePropertyName "padding" -NotePropertyValue "12" -Force
             $defaults | Add-Member -NotePropertyName "cursorShape" -NotePropertyValue "bar" -Force
@@ -63,5 +71,5 @@ function Step-ConfigDeploy {
     }
 
     Write-Log "Config files deployed" "SUCCESS"
+    return $ok
 }
-Step-ConfigDeploy

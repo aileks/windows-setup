@@ -3,211 +3,186 @@ $root = Split-Path $PSScriptRoot -Parent
 $script:Passed = 0
 
 function Assert-True {
-    param(
-        [Parameter(Mandatory)][bool]$Condition,
-        [Parameter(Mandatory)][string]$Message
-    )
-
+    param([Parameter(Mandatory)][bool]$Condition, [Parameter(Mandatory)][string]$Message)
     if (-not $Condition) { throw $Message }
     $script:Passed++
 }
 
 function Assert-Equal {
-    param(
-        $Expected,
-        $Actual,
-        [Parameter(Mandatory)][string]$Message
-    )
-
-    if ($Expected -ne $Actual) {
-        throw "$Message. Expected '$Expected', got '$Actual'."
-    }
+    param($Expected, $Actual, [Parameter(Mandatory)][string]$Message)
+    if ($Expected -ne $Actual) { throw "$Message. Expected '$Expected', got '$Actual'." }
     $script:Passed++
 }
 
-Get-ChildItem "$root\*.ps1", "$root\lib\*.ps1", "$root\helpers\*.ps1", "$root\steps\*.ps1", "$root\personal\*.ps1", "$root\tests\*.ps1" |
-    ForEach-Object {
-        $tokens = $null
-        $errors = $null
-        [void][System.Management.Automation.Language.Parser]::ParseFile($_.FullName, [ref]$tokens, [ref]$errors)
-        Assert-Equal 0 @($errors).Count "PowerShell syntax errors in $($_.FullName)"
+function Write-Log { param([string]$Message, [string]$Level = "INFO") }
+
+$powerShellFiles = @(Get-ChildItem "$root\*.ps1", "$root\lib\*.ps1", "$root\helpers\*.ps1", "$root\personal\*.ps1", "$root\tests\*.ps1")
+foreach ($file in $powerShellFiles) {
+    $tokens = $null
+    $errors = $null
+    $ast = [System.Management.Automation.Language.Parser]::ParseFile($file.FullName, [ref]$tokens, [ref]$errors)
+    Assert-Equal 0 @($errors).Count "PowerShell syntax errors in $($file.FullName)"
+    if ($file.Name -eq "setup.ps1") {
+        Assert-Equal 0 @($ast.ParamBlock.Parameters).Count "setup.ps1 must remain parameterless"
     }
+}
+
+foreach ($jsonFile in @(Get-ChildItem "$root\data\*.json", "$root\configs\*\*.json")) {
+    $null = Get-Content $jsonFile.FullName -Raw | ConvertFrom-Json
+    $script:Passed++
+}
 
 $software = Get-Content "$root\data\software.json" -Raw | ConvertFrom-Json
-$softwareKeys = @($software.categories | ForEach-Object { $_.key })
-Assert-Equal $softwareKeys.Count @($softwareKeys | Select-Object -Unique).Count "Software category keys must be unique"
-
-$softwareIds = @()
-foreach ($category in @($software.categories)) {
-    Assert-True ($category.items.Count -gt 0) "Software category $($category.key) must contain items"
-    foreach ($item in @($category.items)) {
-        Assert-True (-not [string]::IsNullOrWhiteSpace($item.name)) "Software name is required"
-        Assert-True (-not [string]::IsNullOrWhiteSpace($item.id)) "Software ID is required for $($item.name)"
-        Assert-True (@("winget", "direct") -contains $item.installer) "Unsupported installer for $($item.name)"
-        if ($item.installer -eq "direct") {
-            Assert-True (-not [string]::IsNullOrWhiteSpace($item.url)) "Direct URL is required for $($item.name)"
-            Assert-True (-not [string]::IsNullOrWhiteSpace($item.fileName)) "Direct filename is required for $($item.name)"
-        }
-        $softwareIds += $item.id
-    }
+$expectedRequired = @("VS Code", "LocalSend", "VLC", "Zen Browser", "PowerShell 7", "Windows Terminal", "Bitwarden", "Komorebi", "whkd", "masir")
+Assert-Equal $expectedRequired.Count @($software.required).Count "Required software count"
+for ($i = 0; $i -lt $expectedRequired.Count; $i++) {
+    Assert-Equal $expectedRequired[$i] $software.required[$i].name "Required software order"
 }
+
+$expectedOptional = @("BCUninstaller", "Signal", "NVCleanInstall", "7-Zip", "PowerToys", "Raycast", "Windhawk")
+$optionalNames = @($software.optional | ForEach-Object { $_.name })
+Assert-Equal $optionalNames.Count @($optionalNames | Select-Object -Unique).Count "Optional software names must be unique"
+foreach ($name in $expectedOptional) {
+    Assert-True ($optionalNames -contains $name) "Optional software must include $name"
+}
+
+$allSoftware = @(@($software.required) + @($software.optional))
+$softwareIds = @($allSoftware | ForEach-Object { $_.id })
 Assert-Equal $softwareIds.Count @($softwareIds | Select-Object -Unique).Count "Software IDs must be unique"
+foreach ($item in $allSoftware) {
+    Assert-True (-not [string]::IsNullOrWhiteSpace($item.name)) "Software name is required"
+    Assert-True (-not [string]::IsNullOrWhiteSpace($item.id)) "Software ID is required for $($item.name)"
+}
+Assert-True ($softwareIds -notcontains "Git.Git") "Git for Windows must not be installed"
+Assert-True ($softwareIds -notcontains "GitHub.cli") "GitHub CLI for Windows must not be installed"
 
 $cli = Get-Content "$root\data\cli-tools.json" -Raw | ConvertFrom-Json
-$cliPackages = @()
-foreach ($category in @($cli.categories)) {
-    Assert-True ($category.allowMultiple -eq $true) "CLI categories must allow multiple selections"
-    foreach ($tool in @($category.items)) {
-        Assert-True (-not [string]::IsNullOrWhiteSpace($tool.name)) "CLI tool name is required"
-        Assert-True (-not [string]::IsNullOrWhiteSpace($tool.package)) "Scoop package is required for $($tool.name)"
-        Assert-True (-not [string]::IsNullOrWhiteSpace($tool.command)) "Command is required for $($tool.name)"
-        if ($tool.bucket) {
-            Assert-True (-not [string]::IsNullOrWhiteSpace($tool.bucket.name)) "Bucket name is required for $($tool.name)"
-            Assert-True (-not [string]::IsNullOrWhiteSpace($tool.bucket.source)) "Bucket source is required for $($tool.name)"
-        }
-        $cliPackages += $tool.package
-    }
-}
-Assert-Equal $cliPackages.Count @($cliPackages | Select-Object -Unique).Count "CLI packages must be unique"
-
-. "$root\lib\Prompt.ps1"
-$script:Replies = New-Object System.Collections.Generic.Queue[string]
-$script:Warnings = @()
-function Ask-Input {
-    param([string]$Question, [string]$Default = "")
-    if ($script:Replies.Count -eq 0) { return $Default }
-    return $script:Replies.Dequeue()
-}
-function Write-Log {
-    param([string]$Message, [string]$Level = "INFO")
-    if ($Level -eq "WARN" -or $Level -eq "ERROR") { $script:Warnings += $Message }
+$cliIds = @($cli.tools | ForEach-Object { $_.id })
+Assert-Equal $cliIds.Count @($cliIds | Select-Object -Unique).Count "CLI package IDs must be unique"
+Assert-True ($cliIds -notcontains "Git.Git") "Git for Windows must not be installed as a CLI tool"
+Assert-True ($cliIds -notcontains "GitHub.cli") "GitHub CLI for Windows must not be installed as a CLI tool"
+foreach ($tool in @($cli.tools)) {
+    Assert-True (-not [string]::IsNullOrWhiteSpace($tool.command)) "CLI command is required for $($tool.name)"
 }
 
-$multiCategory = [PSCustomObject]@{
-    name = "Test tools"
-    allowMultiple = $true
-    items = @(
-        [PSCustomObject]@{ name = "One"; description = "first" },
-        [PSCustomObject]@{ name = "Two"; description = "second" },
-        [PSCustomObject]@{ name = "Three"; description = "third" }
-    )
+$fonts = Get-Content "$root\data\fonts.json" -Raw | ConvertFrom-Json
+Assert-Equal 1 @($fonts.fonts).Count "Only the opinionated font should be available"
+$adwaita = @($fonts.fonts | Where-Object { $_.name -eq "Adwaita Mono" })
+Assert-Equal 1 $adwaita.Count "Adwaita Mono must be available"
+Assert-Equal "AdwaitaMono Nerd Font Mono" $adwaita[0].monoFace "Adwaita mono face"
+Assert-Equal "AdwaitaMono Nerd Font Propo" $adwaita[0].propoFace "Adwaita proportional face"
+Assert-True ($adwaita[0].archiveUrl -match "^https://github.com/ryanoasis/nerd-fonts/releases/download/") "Adwaita must use an upstream release archive"
+Assert-True ($adwaita[0].sha256 -match "^[a-f0-9]{64}$") "Adwaita archive must have a SHA-256 checksum"
+
+$terminal = Get-Content "$root\configs\windows-terminal\settings.json" -Raw | ConvertFrom-Json
+Assert-Equal "AdwaitaMono Nerd Font Mono" $terminal.profiles.defaults.font.face "Windows Terminal font"
+$bar = Get-Content "$root\configs\komorebi\komorebi.bar.json" -Raw | ConvertFrom-Json
+Assert-Equal "AdwaitaMono Nerd Font Propo" $bar.font_family "Komorebi bar font"
+
+$setupText = Get-Content "$root\setup.ps1" -Raw
+Assert-True ($setupText.Contains("WSL not enabled! Would you like to enable and reboot?")) "WSL gate prompt is required"
+Assert-True ($setupText.Contains("Continue with setup?")) "Setup confirmation is required"
+Assert-True ($setupText.Contains("Read-OptionalSoftwareTui")) "Full-screen optional software selection is required"
+Assert-True (-not $setupText.Contains("Read-CatalogCategorySelection")) "Numbered catalog selection must be removed"
+$developerText = Get-Content "$root\personal\02-DevSettings.ps1" -Raw
+foreach ($requiredText in @("LongPathsEnabled", "AllowDevelopmentWithoutDevLicense", "L2L:1", "R2R:1", "L2R:1", "R2L:1", "sudo config --enable normal")) {
+    Assert-True ($developerText.Contains($requiredText)) "Developer tweaks must contain $requiredText"
 }
-$script:Replies.Enqueue("1, 3 3")
-$selection = @(Read-CatalogCategorySelection $multiCategory)
-Assert-Equal 2 $selection.Count "Multi-select should deduplicate selections"
-Assert-Equal "Three" $selection[1].name "Multi-select should preserve entered order"
-
-$script:Replies.Enqueue("a")
-$selection = @(Read-CatalogCategorySelection $multiCategory)
-Assert-Equal 3 $selection.Count "All should select every multi-select item"
-
-$script:Replies.Enqueue("invalid")
-$script:Replies.Enqueue("2")
-$selection = @(Read-CatalogCategorySelection $multiCategory)
-Assert-Equal "Two" $selection[0].name "Invalid input should prompt again"
-Assert-True ($script:Warnings.Count -gt 0) "Invalid input should produce a warning"
-
-$script:Replies.Enqueue("")
-$selection = @(Read-CatalogCategorySelection $multiCategory)
-Assert-Equal 0 $selection.Count "Blank input should skip a category"
-
-$singleCategory = [PSCustomObject]@{
-    name = "Single choice"
-    allowMultiple = $false
-    items = $multiCategory.items
+$explorerText = Get-Content "$root\personal\03-ExplorerTweaks.ps1" -Raw
+foreach ($requiredText in @("TaskbarDa", "SearchboxTaskbarMode", "ShowTaskViewButton", "TurnOffWindowsCopilot")) {
+    Assert-True ($explorerText.Contains($requiredText)) "Explorer tweaks must contain $requiredText"
 }
-$script:Replies.Enqueue("1,2")
-$script:Replies.Enqueue("2")
-$selection = @(Read-CatalogCategorySelection $singleCategory)
-Assert-Equal 1 $selection.Count "Single-select should reject multiple choices"
-Assert-Equal "Two" $selection[0].name "Single-select should return the valid retry"
-
-. "$root\helpers\CliTools.ps1"
-$selectedTools = @(
-    [PSCustomObject]@{ name = "One"; package = "one"; command = "one" },
-    [PSCustomObject]@{ name = "Two"; package = "two"; command = "two" }
-)
-function Get-CliToolsCatalog {
-    [PSCustomObject]@{ categories = @([PSCustomObject]@{ items = $selectedTools }) }
+$privacyText = Get-Content "$root\personal\04-PrivacyTweaks.ps1" -Raw
+foreach ($requiredText in @("AllowTelemetry", "CEIPEnable", "DisableInventory", "DODownloadMode", "AllowRecallEnablement")) {
+    Assert-True ($privacyText.Contains($requiredText)) "Privacy tweaks must contain $requiredText"
 }
-function Read-CatalogCategorySelection { param($Category) return $selectedTools }
-$script:StateValues = @{}
-$script:ScoopChecks = 0
-$script:InstallAttempts = @()
-function Set-StateValue { param([string]$Key, $Value) $script:StateValues[$Key] = $Value }
-function Ensure-Scoop { $script:ScoopChecks++; return $true }
-function Refresh-EnvironmentPath {}
-function Install-ScoopCliTool {
-    param($Tool)
-    $script:InstallAttempts += $Tool.package
-    return $Tool.package -ne "two"
-}
-$result = Invoke-CliToolsSelectionInstall
-Assert-True ($result -eq $false) "CLI install should report a selected package failure"
-Assert-Equal 1 $script:ScoopChecks "Scoop should be ensured once"
-Assert-Equal 2 $script:InstallAttempts.Count "Every selected CLI tool should be attempted"
-Assert-Equal 2 @($script:StateValues["selectedCliToolPackages"]).Count "Selected CLI packages should be saved"
 
-$selectedTools = @()
-$script:ScoopChecks = 0
-$result = Invoke-CliToolsSelectionInstall
-Assert-True ($result -eq $true) "Skipping CLI tools should succeed"
-Assert-Equal 0 $script:ScoopChecks "Skipping CLI tools should not install Scoop"
+. "$root\lib\Tui.ps1"
+function Test-TuiAvailable { return $false }
+$fallbackItems = @([PSCustomObject]@{ id = "one" }, [PSCustomObject]@{ id = "two" })
+$fallbackSelection = Read-OptionalSoftwareTui -Items $fallbackItems
+Assert-True (-not $fallbackSelection.Cancelled) "Non-interactive selection must continue"
+Assert-Equal 2 @($fallbackSelection.Items).Count "Non-interactive selection must keep all opinionated extras"
+$emptySelection = Read-OptionalSoftwareTui -Items @()
+Assert-True (-not $emptySelection.Cancelled) "Empty optional catalog must continue"
+Assert-Equal 0 @($emptySelection.Items).Count "Empty optional catalog must stay empty"
 
-. "$root\helpers\CliTools.ps1"
-$script:BucketName = ""
-$script:ScoopArguments = @()
-function Test-CliToolInstalled { param($Tool) return $false }
-function Ensure-ScoopBucket {
-    param([string]$Name, [string]$Source)
-    $script:BucketName = $Name
-    return $true
+$profileText = Get-Content "$root\configs\powershell\Microsoft.PowerShell_profile.ps1" -Raw
+foreach ($requiredText in @("Set-PSReadLineOption", "PSFzf", "starship init powershell", "zoxide init powershell")) {
+    Assert-True ($profileText.Contains($requiredText)) "PowerShell profile must contain $requiredText"
 }
-function scoop {
-    $script:ScoopArguments = @($args)
+Assert-True (-not ($profileText -match "function\s+g[a-z]*\s*\{")) "PowerShell profile must not contain Git aliases"
+
+$bootstrapText = Get-Content "$root\configs\wsl\bootstrap.sh" -Raw
+foreach ($requiredText in @("git", "openssh-client", "zsh", "socat", "iproute2", "fastfetch", "starship", "core.autocrlf input", "npiperelay.exe")) {
+    Assert-True ($bootstrapText.Contains($requiredText)) "WSL bootstrap must contain $requiredText"
+}
+Assert-True ($bootstrapText.Contains("/etc/wsl.conf.bak-")) "WSL system config must be backed up"
+$relayText = Get-Content "$root\configs\wsl\bitwarden-ssh-agent.zsh" -Raw
+Assert-True ($relayText.Contains("//./pipe/openssh-ssh-agent")) "Bitwarden relay must target the OpenSSH named pipe"
+Assert-True ($relayText.Contains("mode=600")) "Bitwarden relay socket must be private"
+
+. "$root\lib\Result.ps1"
+$result = New-SetupResult -Id "test" -Name "Test" -Status Success
+Assert-True (Test-SetupResultSuccessful $result) "Successful result detection"
+$result.Status = "Failed"
+Assert-True (-not (Test-SetupResultSuccessful $result)) "Failed result detection"
+
+. "$root\lib\State.ps1"
+$tempRoot = if ($env:TEMP) { $env:TEMP } else { [System.IO.Path]::GetTempPath() }
+$tempDir = Join-Path $tempRoot "win-setup-test-$([guid]::NewGuid())"
+New-Item -ItemType Directory -Path $tempDir | Out-Null
+try {
+    $statePath = Join-Path $tempDir "state.json"
+    Load-State $statePath | Out-Null
+    $stateResult = New-SetupResult -Id "atomic" -Name "Atomic" -Status Success
+    Set-StateResult $stateResult
+    Assert-True (Test-Path $statePath) "State file must be written"
+    Assert-True (-not (Test-Path "$statePath.tmp")) "Atomic state temp file must be replaced"
+    Set-StateValue "secondWrite" $true
+    Load-State $statePath | Out-Null
+    Assert-True (Test-StateCompleted "atomic") "Completed state must reload"
+    Assert-True ((Get-StateValue "secondWrite") -eq $true) "Atomic state replacement must preserve later writes"
+} finally {
+    Remove-Item -LiteralPath $tempDir -Recurse -Force
+}
+
+. "$root\helpers\Software.ps1"
+$script:WingetArguments = @()
+function winget {
+    $script:WingetArguments = @($args)
     $global:LASTEXITCODE = 0
-    return "installed"
+    "installed"
 }
-$lazyGit = [PSCustomObject]@{
-    name = "lazygit"
-    package = "lazygit"
-    command = "lazygit"
-    bucket = [PSCustomObject]@{ name = "extras"; source = "https://github.com/ScoopInstaller/Extras" }
-}
-$result = Install-ScoopCliTool $lazyGit
-Assert-True ($result -eq $true) "Scoop CLI installation should report success"
-Assert-Equal "extras" $script:BucketName "lazygit should ensure the Extras bucket"
-Assert-Equal "install" $script:ScoopArguments[0] "Scoop should receive the install command"
-Assert-Equal "lazygit" $script:ScoopArguments[1] "Scoop should install the selected package"
+$wingetResult = Install-WinGetPackage -PackageId "Example.Package" -Name "Example"
+Assert-True $wingetResult "WinGet mock install should succeed"
+Assert-True ($script:WingetArguments -contains "--id") "WinGet install must constrain by ID"
+Assert-True ($script:WingetArguments -contains "--exact") "WinGet install must require an exact match"
 
-$script:PersonalSetupSelected = $true
-$script:RootDir = $root
-$script:CompletedStep = ""
-$script:StateValues = @{}
-$script:WslArguments = @()
-function Test-StateCompleted { return $false }
-function New-ConfigLink { param([string]$Source, [string]$Dest) }
-function Set-StateCompleted { param([string]$StepId) $script:CompletedStep = $StepId }
-function wsl {
-    $script:WslArguments = @($args)
-    $global:LASTEXITCODE = 0
-    return "installed"
+. "$root\lib\Registry.ps1"
+function Set-RegistrySafe {
+    param([string]$Path, [string]$Name, $Value, [string]$Type, [switch]$PassThru)
+    return $Name -ne "Bad"
 }
-. "$root\personal\06-WslUbuntu.ps1"
-Assert-Equal 1 $script:WslArguments.Count "WSL should receive one argument"
-Assert-Equal "--install" $script:WslArguments[0] "WSL should use the bare install command"
-Assert-True ($script:StateValues["rebootRequired"] -eq $true) "Successful WSL install should require reboot"
-Assert-Equal "Personal.WslUbuntu" $script:CompletedStep "Successful WSL install should complete the step"
+$batchResult = Set-RegistryBatch @{ "HKCU:\Test" = @{ "Good" = @{ Value = 1 }; "Bad" = @{ Value = 0 } } }
+Assert-True (-not $batchResult) "Registry batch must report partial failure"
 
-$script:CompletedStep = ""
-$script:Warnings = @()
-function wsl {
-    $script:WslArguments = @($args)
-    $global:LASTEXITCODE = 7
-    return "failed"
+. "$root\helpers\Wsl.ps1"
+Assert-True ($script:NpipeRelayVersion -match "^\d+\.\d+\.\d+$") "npiperelay version must be pinned"
+Assert-True ($script:NpipeRelaySha256 -match "^[a-f0-9]{64}$") "npiperelay archive must have a SHA-256 checksum"
+$wslHelperText = Get-Content "$root\helpers\Wsl.ps1" -Raw
+Assert-True ($wslHelperText.Contains("github.com/albertony/npiperelay")) "npiperelay must use the maintained fork"
+Assert-True ($wslHelperText.Contains("--web-download")) "WSL must retry without Microsoft Store delivery"
+$fontHelperText = Get-Content "$root\helpers\Fonts.ps1" -Raw
+Assert-True ($fontHelperText.Contains("Set-RegistrySafe")) "Font registration must use registry backup handling"
+function Get-WindowsOptionalFeature {
+    param([switch]$Online, [string]$FeatureName)
+    [PSCustomObject]@{ State = "Enabled" }
 }
-Step-WslUbuntu
-Assert-Equal "" $script:CompletedStep "Failed WSL install should remain incomplete"
-Assert-True (($script:Warnings -join " ") -match "exit code 7") "Failed WSL install should log its exit code"
+Assert-True (Test-WslPlatformEnabled) "WSL platform detection should require both enabled features"
+
+$implementationFiles = @($powerShellFiles | Where-Object { $_.DirectoryName -ne (Join-Path $root "tests") })
+$allPowerShellText = ($implementationFiles | ForEach-Object { Get-Content $_.FullName -Raw }) -join "`n"
+Assert-True (-not ($allPowerShellText -match "Ensure-Scoop|scoop install|Scoop Git")) "Windows setup must not depend on Scoop or Git"
 
 Write-Host "$script:Passed assertions passed" -ForegroundColor Green

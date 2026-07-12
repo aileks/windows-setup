@@ -13,89 +13,74 @@ function Get-SelectedNerdFontMonoFace {
     $face
 }
 
-function Get-SelectedNerdFontPropoFace {
-    $face = Get-StateValue "selectedNerdFontPropoFace"
-    if ([string]::IsNullOrWhiteSpace($face)) { return "" }
-    $face
+function Publish-FontChange {
+    if (-not ("WinSetupFontChange" -as [type])) {
+        Add-Type @'
+using System;
+using System.Runtime.InteropServices;
+
+public static class WinSetupFontChange {
+    [DllImport("user32.dll", SetLastError = true)]
+    public static extern IntPtr SendMessageTimeout(
+        IntPtr window, uint message, UIntPtr wParam, IntPtr lParam,
+        uint flags, uint timeout, out UIntPtr result);
 }
-
-function Read-NerdFontSelection {
-    $catalog = Get-FontCatalog
-    $fonts = @($catalog.fonts)
-
-    while ($true) {
-        Write-Host ""
-        Write-Host "Nerd Font" -ForegroundColor White
-
-        for ($i = 0; $i -lt $fonts.Count; $i++) {
-            Write-Host ("  {0}. {1}" -f ($i + 1), $fonts[$i].name) -ForegroundColor Cyan
-        }
-
-        $reply = Ask-Input "Select Nerd Font (one number, blank to skip)" ""
-        if ([string]::IsNullOrWhiteSpace($reply)) { return $null }
-
-        if ($reply -notmatch "^\d+$") {
-            Write-Log "  Invalid selection: $reply" "WARN"
-            continue
-        }
-
-        $index = [int]$reply
-        if ($index -lt 1 -or $index -gt $fonts.Count) {
-            Write-Log "  Invalid selection: $reply" "WARN"
-            continue
-        }
-
-        return $fonts[$index - 1]
-    }
-}
-
-function Install-NerdFontPackage {
-    param(
-        [Parameter(Mandatory)][string]$Package,
-        [Parameter(Mandatory)][string]$Name
-    )
-
-    Write-Log "Installing $Name ($Package) via Scoop..." "INFO"
-    & scoop install $Package 2>&1 | Write-Host
-    if ($LASTEXITCODE -ne 0) {
-        Write-Log "  Scoop install failed for $Package" "WARN"
-        return $false
+'@
     }
 
-    Write-Log "Installed $Name" "SUCCESS"
-    return $true
+    $result = [UIntPtr]::Zero
+    [void][WinSetupFontChange]::SendMessageTimeout(
+        [IntPtr]0xffff, 0x001D, [UIntPtr]::Zero, [IntPtr]::Zero, 2, 5000, [ref]$result)
 }
 
 function Invoke-NerdFontSetup {
-    $font = Read-NerdFontSelection
-    if ($null -eq $font) {
-        Set-StateValue -Key "selectedNerdFontMonoPackage" -Value ""
-        Set-StateValue -Key "selectedNerdFontPropoPackage" -Value ""
-        Set-StateValue -Key "selectedNerdFontMonoFace" -Value ""
-        Set-StateValue -Key "selectedNerdFontPropoFace" -Value ""
-        return $true
-    }
-
-    if (-not (Ensure-Scoop)) { return $false }
-
     $catalog = Get-FontCatalog
-    if (-not (Ensure-ScoopBucket -Name $catalog.bucket.name -Source $catalog.bucket.source)) {
-        return $false
-    }
+    $font = @($catalog.fonts) | Where-Object { $_.name -eq "Adwaita Mono" } | Select-Object -First 1
+    if ($null -eq $font) { throw "Adwaita Mono is missing from data/fonts.json" }
 
-    $monoInstalled = Install-NerdFontPackage -Package $font.monoPackage -Name "$($font.name) mono Nerd Font"
-    $propoInstalled = Install-NerdFontPackage -Package $font.propoPackage -Name "$($font.name) proportional Nerd Font"
-    if ($monoInstalled -and $propoInstalled) {
-        Set-StateValue -Key "selectedNerdFontMonoPackage" -Value $font.monoPackage
-        Set-StateValue -Key "selectedNerdFontPropoPackage" -Value $font.propoPackage
+    $tempDir = Join-Path $env:TEMP "win-setup-font-$([guid]::NewGuid())"
+    $archivePath = Join-Path $tempDir "AdwaitaMono.zip"
+    try {
+        New-Item -Path $tempDir -ItemType Directory -Force | Out-Null
+        Write-Log "Downloading Adwaita Mono Nerd Font $($font.version)..." "INFO"
+        Invoke-WebRequest -Uri $font.archiveUrl -OutFile $archivePath -UseBasicParsing
+        $actualHash = (Get-FileHash -LiteralPath $archivePath -Algorithm SHA256).Hash.ToLowerInvariant()
+        if ($actualHash -ne $font.sha256.ToLowerInvariant()) {
+            throw "Adwaita Mono archive checksum mismatch"
+        }
+
+        Expand-Archive -LiteralPath $archivePath -DestinationPath $tempDir -Force
+        $fontFiles = @(Get-ChildItem -Path $tempDir -Filter "*.ttf" -File -Recurse)
+        if ($fontFiles.Count -eq 0) { throw "Adwaita Mono archive contained no TrueType fonts" }
+
+        $fontDir = Join-Path $env:LOCALAPPDATA "Microsoft\Windows\Fonts"
+        $registryPath = "HKCU:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Fonts"
+        New-Item -Path $fontDir -ItemType Directory -Force | Out-Null
+        foreach ($file in $fontFiles) {
+            $destination = Join-Path $fontDir $file.Name
+            if ((Test-Path -LiteralPath $destination) -and
+                (Get-FileHash -LiteralPath $destination -Algorithm SHA256).Hash -ne
+                (Get-FileHash -LiteralPath $file.FullName -Algorithm SHA256).Hash) {
+                Copy-Item -LiteralPath $destination -Destination "$destination.bak-$(Get-Date -Format 'yyyyMMdd-HHmmss')"
+            }
+            Copy-Item -LiteralPath $file.FullName -Destination $destination -Force
+            if (-not (Set-RegistrySafe -Path $registryPath -Name "$($file.BaseName) (TrueType)" `
+                -Value $destination -Type String -PassThru)) {
+                throw "Could not register $($file.Name)"
+            }
+        }
+
         Set-StateValue -Key "selectedNerdFontMonoFace" -Value $font.monoFace
         Set-StateValue -Key "selectedNerdFontPropoFace" -Value $font.propoFace
+        Publish-FontChange
+        Write-Log "Installed Adwaita Mono Nerd Font" "SUCCESS"
         return $true
+    } catch {
+        Write-Log "Adwaita Mono installation failed: $($_.Exception.Message)" "ERROR"
+        return $false
+    } finally {
+        if (Test-Path -LiteralPath $tempDir) {
+            Remove-Item -LiteralPath $tempDir -Recurse -Force
+        }
     }
-
-    Set-StateValue -Key "selectedNerdFontMonoPackage" -Value ""
-    Set-StateValue -Key "selectedNerdFontPropoPackage" -Value ""
-    Set-StateValue -Key "selectedNerdFontMonoFace" -Value ""
-    Set-StateValue -Key "selectedNerdFontPropoFace" -Value ""
-    return $false
 }

@@ -1,6 +1,7 @@
-function Step-KomorebiSetup {
+function Invoke-KomorebiSetup {
     if (-not (Test-SoftwareInstalled -Commands @("komorebic"))) {
-        return
+        Write-Log "Komorebi is unavailable" "ERROR"
+        return $false
     }
 
     $komorebiConfig = "$env:USERPROFILE\komorebi.json"
@@ -12,14 +13,13 @@ function Step-KomorebiSetup {
     New-ConfigLink "$script:RootDir/configs/komorebi/whkdrc" $whkdConfig
     Write-Log "  Linked komorebi config files" "INFO"
 
-    if (Test-StateCompleted "Personal.KomorebiSetup") { return }
     Write-Log "Setting up komorebi..." "INFO"
 
     Refresh-EnvironmentPath
 
     # Frees Win+L for whkd by disabling the OS lock; Win+Escape locks via KomorebiLock below.
-    Set-RegistrySafe -Path "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System" `
-        -Name "DisableLockWorkstation" -Value 1 -Type DWord
+    if (-not (Set-RegistrySafe -Path "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System" `
+        -Name "DisableLockWorkstation" -Value 1 -Type DWord -PassThru)) { return $false }
     Write-Log "  Set DisableLockWorkstation=1 to free Win+L for komorebi" "INFO"
 
     # Elevated on-demand task: non-elevated whkd can't toggle the policy, so this re-enables locking, locks, then disables it again to keep Win+L free.
@@ -33,20 +33,23 @@ function Step-KomorebiSetup {
 
     if (-not (Get-Command komorebic -ErrorAction SilentlyContinue)) {
         Write-Log "  komorebic not found; fetch-asc and autostart are unavailable" "WARN"
-        return
+        return $false
     }
 
-    komorebic fetch-asc 2>&1 | Write-Host
+    $output = @(komorebic fetch-asc 2>&1)
+    foreach ($line in $output) { Write-Log "  $line" "INFO" }
+    if ($LASTEXITCODE -ne 0) { return $false }
     Write-Log "  Fetched application-specific configs" "INFO"
 
     Get-ScheduledTask -TaskName 'Komorebi' -ErrorAction SilentlyContinue |
         Unregister-ScheduledTask -Confirm:$false
 
-    komorebic enable-autostart --whkd --bar --masir 2>&1 | Write-Host
+    $output = @(komorebic enable-autostart --whkd --bar --masir 2>&1)
+    foreach ($line in $output) { Write-Log "  $line" "INFO" }
+    if ($LASTEXITCODE -ne 0) { return $false }
     Write-Log "  Enabled autostart" "INFO"
 
-    Set-StateCompleted "Personal.KomorebiSetup"
     Write-Log "Komorebi configured." "SUCCESS"
     Write-Log "  To start now without signing out, run in a normal non-admin terminal: komorebic start --whkd --bar --masir" "INFO"
+    return $true
 }
-Step-KomorebiSetup

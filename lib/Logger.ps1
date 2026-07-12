@@ -27,5 +27,7 @@ function Write-Log {
         "ERROR"   { "Red" }
         "SUCCESS" { "Green" }
     }
-    Write-Host $Message -ForegroundColor $color
+    if ($script:TuiActive -ne $true) {
+        Write-Host $Message -ForegroundColor $color
+    }
 }
