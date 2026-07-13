@@ -133,6 +133,7 @@ function Copy-WslConfigPayload {
     $payloadFiles = @(
         @{ Source = "configs\wsl\bootstrap.sh"; Relative = "wsl\bootstrap.sh" }
         @{ Source = "configs\wsl\zshrc"; Relative = "wsl\zshrc" }
+        @{ Source = "configs\wsl\zsh_plugins.txt"; Relative = "wsl\zsh_plugins.txt" }
         @{ Source = "configs\wsl\wsl.conf"; Relative = "wsl\wsl.conf" }
         @{ Source = "configs\wsl\bitwarden-ssh-agent.zsh"; Relative = "wsl\bitwarden-ssh-agent.zsh" }
         @{ Source = "configs\starship\starship.toml"; Relative = "starship\starship.toml" }

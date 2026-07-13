@@ -73,9 +73,24 @@ function Ensure-ScoopBucket {
         [Parameter(Mandatory)][string]$Source
     )
 
+    $scoopRoot = if ([string]::IsNullOrWhiteSpace($env:SCOOP)) {
+        Join-Path $HOME "scoop"
+    } else {
+        $env:SCOOP
+    }
+    $bucketPath = Join-Path $scoopRoot "buckets\$Name"
+    if (Test-Path -LiteralPath $bucketPath -PathType Container) {
+        Write-Log "Scoop bucket '$Name' is already available" "INFO"
+        return $true
+    }
+
     $listResult = Invoke-NativeCommand -FilePath "scoop" -ArgumentList @("bucket", "list")
+    $escapedName = [regex]::Escape($Name)
     if ($listResult.ExitCode -eq 0 -and
-        (@($listResult.Output) | Where-Object { $_ -match "^\s*$([regex]::Escape($Name))(?:\s|$)" })) {
+        (@($listResult.Output) | Where-Object {
+            $_ -match "^\s*$escapedName(?:\s|$)" -or
+            $_ -match "(?:^|[{;]\s*)Name\s*=\s*$escapedName(?:[;}\s]|$)"
+        })) {
         Write-Log "Scoop bucket '$Name' is already available" "INFO"
         return $true
     }
@@ -85,6 +100,10 @@ function Ensure-ScoopBucket {
         "bucket", "add", $Name, $Source
     )
     if ($addResult.ExitCode -ne 0) {
+        if (Test-Path -LiteralPath $bucketPath -PathType Container) {
+            Write-Log "Scoop bucket '$Name' became available while it was being added" "INFO"
+            return $true
+        }
         Write-Log "Could not add Scoop bucket '$Name' (exit $($addResult.ExitCode))" "ERROR"
         return $false
     }

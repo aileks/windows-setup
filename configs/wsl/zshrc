@@ -1,17 +1,123 @@
 typeset -U path PATH
 path=("$HOME/.local/bin" $path)
-export EDITOR="code --wait"
-export VISUAL="$EDITOR"
 
+# Core environment
+export EDITOR="nvim"
+export VISUAL="$EDITOR"
+export SUDO_EDITOR="$VISUAL"
+export MANPAGER='bat --theme="ashen" -plman'
+[[ -r "$HOME/.config/win-setup/bitwarden-ssh-agent.zsh" ]] && \
+  source "$HOME/.config/win-setup/bitwarden-ssh-agent.zsh"
+bindkey -e
+
+# Terminal line editing
+bindkey '^[[1;5D' backward-word
+bindkey '^[[1;5C' forward-word
+bindkey '^[[5D' backward-word
+bindkey '^[[5C' forward-word
+bindkey '^[Od' backward-word
+bindkey '^[Oc' forward-word
+bindkey '^[[1;5A' history-beginning-search-backward
+bindkey '^[[1;5B' history-beginning-search-forward
+bindkey '^[[H' beginning-of-line
+bindkey '^[[F' end-of-line
+bindkey '^[OH' beginning-of-line
+bindkey '^[OF' end-of-line
+bindkey '^[[1~' beginning-of-line
+bindkey '^[[4~' end-of-line
+bindkey '^[[7~' beginning-of-line
+bindkey '^[[8~' end-of-line
+bindkey '^[[3~' delete-char
+
+# History
 HISTFILE="$HOME/.zsh_history"
 HISTSIZE=50000
-SAVEHIST=50000
-setopt append_history hist_ignore_dups share_history
-bindkey -v
-autoload -Uz compinit && compinit
+SAVEHIST=10000
+setopt EXTENDED_HISTORY
+setopt HIST_EXPIRE_DUPS_FIRST
+setopt HIST_IGNORE_DUPS
+setopt HIST_IGNORE_SPACE
+setopt HIST_VERIFY
+setopt SHARE_HISTORY
+setopt INC_APPEND_HISTORY
 
-[[ -r /usr/share/doc/fzf/examples/key-bindings.zsh ]] && source /usr/share/doc/fzf/examples/key-bindings.zsh
-[[ -r "$HOME/.config/win-setup/bitwarden-ssh-agent.zsh" ]] && source "$HOME/.config/win-setup/bitwarden-ssh-agent.zsh"
+# Completion: case-insensitive, partial-word, and substring matching
+zstyle ':completion:*' matcher-list \
+  'm:{a-zA-Z}={A-Za-z}' 'r:|[._-]=* r:|=*' 'l:|=* r:|=*'
 
+# General aliases
+alias ls="eza --color=always --icons --group-directories-first"
+alias la="eza -al --color=always --icons --group-directories-first"
+alias lt="eza -aT --color=always --icons --group-directories-first"
+alias rm="trash"
+alias c="clear"
+alias fzf="fzf --style full"
+alias ff="fastfetch"
+alias vim="nvim"
+command -v podman >/dev/null && alias docker="podman"
+
+# FZF
+export FZF_CTRL_T_OPTS="
+  --walker-skip .git,node_modules,target
+  --preview 'bat -n --color=always {}'
+  --bind 'ctrl-/:change-preview-window(down|hidden|)'"
+export FZF_ALT_C_OPTS="
+  --walker-skip .git,node_modules,target
+  --preview 'eza --tree --color=always --icons {}'"
+export FZF_DEFAULT_OPTS="
+  --color=fg:#a7a7a7
+  --color=fg+:#d5d5d5
+  --color=bg:#121212
+  --color=bg+:#323232
+  --color=hl:#C4693D
+  --color=hl+:#E49A44
+  --color=info:#a7a7a7
+  --color=marker:#C4693D
+  --color=prompt:#C4693D
+  --color=spinner:#D87C4A
+  --color=pointer:#E5A72A
+  --color=header:#B14242
+  --color=border:#a7a7a7
+  --color=query:#d5d5d5
+  --color=gutter:#121212
+  --highlight-line
+  --info=inline-right
+  --layout=reverse
+  --pointer='█'
+  --scrollbar='▌'
+  --multi
+  --border=top
+"
+export _ZO_FZF_OPTS="
+  $FZF_DEFAULT_OPTS
+  --height=50%
+  --preview 'eza --color=always --icons --group-directories-first {2..}'
+  --preview-window=down,border-top
+  --bind 'ctrl-b:preview-up,ctrl-f:preview-down'
+  --bind 'ctrl-/:change-preview-window(right|hidden|)'"
+
+# Antidote plugin manager
+if [[ -f "${ZDOTDIR:-$HOME}/.antidote/antidote.zsh" ]]; then
+  source "${ZDOTDIR:-$HOME}/.antidote/antidote.zsh"
+  antidote load "${${(%):-%N}:A:h}/zsh_plugins.txt"
+fi
+
+# Interactive tools
+command -v fzf >/dev/null && source <(fzf --zsh)
 command -v zoxide >/dev/null && eval "$(zoxide init zsh)"
 command -v starship >/dev/null && eval "$(starship init zsh)"
+
+if [[ -r "$HOME/.local/bin/env" ]]; then
+  . "$HOME/.local/bin/env"
+fi
+
+# pnpm
+export PNPM_HOME="$HOME/.local/share/pnpm"
+case ":$PATH:" in
+  *":$PNPM_HOME/bin:"*) ;;
+  *) export PATH="$PNPM_HOME/bin:$PATH" ;;
+esac
+
+export NVM_DIR="$HOME/.nvm"
+[[ -s "$NVM_DIR/nvm.sh" ]] && source "$NVM_DIR/nvm.sh"
+[[ -s "$NVM_DIR/bash_completion" ]] && source "$NVM_DIR/bash_completion"

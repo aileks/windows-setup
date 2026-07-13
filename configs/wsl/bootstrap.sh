@@ -18,7 +18,7 @@ export DEBIAN_FRONTEND=noninteractive
 apt-get update
 apt-get install -y \
   bat build-essential ca-certificates curl eza fastfetch fd-find fzf git iproute2 jq \
-  openssh-client ripgrep socat starship unzip zoxide zsh
+  neovim openssh-client ripgrep socat starship trash-cli unzip zoxide zsh
 
 install -d -m 0755 -o "$linux_user" -g "$linux_user" \
   "$home_dir/.config" "$home_dir/.config/bat/themes" "$home_dir/.config/win-setup" \
@@ -44,6 +44,20 @@ backup_and_link "$config_root/bat/ashen.tmTheme" "$home_dir/.config/bat/themes/a
 if ! command -v bat >/dev/null 2>&1 && command -v batcat >/dev/null 2>&1; then
   ln -sfn /usr/bin/batcat "$home_dir/.local/bin/bat"
 fi
+
+antidote_dir="$home_dir/.antidote"
+if [[ -d "$antidote_dir/.git" ]]; then
+  echo "Updating antidote..."
+  runuser -u "$linux_user" -- git -C "$antidote_dir" pull --ff-only --quiet
+elif [[ -e "$antidote_dir" ]]; then
+  echo "$antidote_dir exists but is not an Antidote git checkout" >&2
+  exit 1
+else
+  echo "Installing antidote..."
+  runuser -u "$linux_user" -- git clone --depth=1 \
+    https://github.com/mattmc3/antidote.git "$antidote_dir"
+fi
+
 if ! command -v fd >/dev/null 2>&1 && command -v fdfind >/dev/null 2>&1; then
   ln -sfn /usr/bin/fdfind "$home_dir/.local/bin/fd"
 fi
