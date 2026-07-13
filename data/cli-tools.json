@@ -1,11 +1,42 @@
 {
   "tools": [
-    { "name": "ripgrep", "id": "BurntSushi.ripgrep.MSVC", "command": "rg", "description": "fast text search" },
+    {
+      "name": "ripgrep",
+      "id": "BurntSushi.ripgrep.MSVC",
+      "command": "rg",
+      "description": "fast text search"
+    },
     { "name": "fzf", "id": "junegunn.fzf", "command": "fzf", "description": "fuzzy finder" },
-    { "name": "zoxide", "id": "ajeetdsouza.zoxide", "command": "zoxide", "description": "directory navigation" },
-    { "name": "fastfetch", "id": "Fastfetch-cli.Fastfetch", "command": "fastfetch", "description": "system information" },
-    { "name": "bat", "id": "sharkdp.bat", "command": "bat", "description": "syntax-aware file viewer" },
-    { "name": "eza", "id": "eza-community.eza", "command": "eza", "description": "modern directory listing" },
-    { "name": "Starship", "id": "Starship.Starship", "command": "starship", "description": "cross-shell prompt" }
+    {
+      "name": "zoxide",
+      "id": "ajeetdsouza.zoxide",
+      "command": "zoxide",
+      "description": "directory navigation"
+    },
+    {
+      "name": "fastfetch",
+      "id": "Fastfetch-cli.Fastfetch",
+      "command": "fastfetch",
+      "description": "system information"
+    },
+    {
+      "name": "bat",
+      "id": "sharkdp.bat",
+      "command": "bat",
+      "description": "syntax-aware file viewer"
+    },
+    {
+      "name": "eza",
+      "id": "eza-community.eza",
+      "command": "eza",
+      "description": "modern directory listing"
+    },
+    {
+      "name": "Starship",
+      "id": "Starship.Starship",
+      "command": "starship",
+      "description": "cross-shell prompt"
+    },
+    { "name": "shfmt", "id": "mvdan.shfmt", "command": "shfmt", "description": "shell formatter" }
   ]
 }

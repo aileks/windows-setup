@@ -22,7 +22,7 @@ apt-get install -y \
 
 install -d -m 0755 -o "$linux_user" -g "$linux_user" \
   "$home_dir/.config" "$home_dir/.config/bat/themes" "$home_dir/.config/win-setup" \
-  "$home_dir/.local/bin" "$home_dir/projects"
+  "$home_dir/.local/bin" "$home_dir/Projects"
 
 backup_and_link() {
   local source="$1"

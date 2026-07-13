@@ -143,7 +143,7 @@ function Test-WinGetPackageId {
 
     $arguments = @("show", "--id", $PackageId, "--exact", "--accept-source-agreements", "--disable-interactivity")
     if (-not [string]::IsNullOrWhiteSpace($Source)) { $arguments += @("--source", $Source) }
-    $result = Invoke-NativeCommand -FilePath "winget" -ArgumentList $arguments -OutputPrefix "    "
+    $result = Invoke-NativeCommand -FilePath "winget" -ArgumentList $arguments -OutputPrefix "    " -NoConsole
     return $result.ExitCode -eq 0
 }
 
@@ -155,7 +155,7 @@ function Test-WinGetPackageInstalled {
 
     $arguments = @("list", "--id", $PackageId, "--exact", "--accept-source-agreements", "--disable-interactivity")
     if (-not [string]::IsNullOrWhiteSpace($Source)) { $arguments += @("--source", $Source) }
-    $result = Invoke-NativeCommand -FilePath "winget" -ArgumentList $arguments -OutputPrefix "    "
+    $result = Invoke-NativeCommand -FilePath "winget" -ArgumentList $arguments -OutputPrefix "    " -NoConsole
     return $result.ExitCode -eq 0
 }
 

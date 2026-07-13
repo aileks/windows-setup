@@ -28,7 +28,7 @@ Set-ExecutionPolicy Bypass -Scope Process
 - Enables taskbar auto-hide and removes search and Task View icons.
 - Disable Widgets, cloud/web search, consumer content, suggestions, tips, and tailored experiences.
 - Disables telemetry, opt-in UI, extended logs/dumps, feedback prompts, advertising ID, activity upload, and speech/input personalization.
-- Disables Recall snapshots and removes the Recall optional component when present.
+- Disables Recall snapshots through Windows policy.
 - Keeps local clipboard history while disabling cross-device clipboard sync.
 - Activates Ultimate Performance power profile.
 - Installs Adwaita and JetBrains nerd fonts.
@@ -42,7 +42,7 @@ Before registry-backed setup actions run, the registry is backed up under `%USER
 - Prompts for git setup.
 - Sets zsh as default shell.
 - Installs modern utilities: socat, ripgrep, fzf, fastfetch, bat, eza, zoxide, fd, jq, and Starship.
-- `~/projects` for Linux-hosted repositories.
+- `~/Projects` for Linux-hosted repositories.
 - Copies managed configs through `\\wsl.localhost\Ubuntu\home\<user>` into Linux storage, then creates native Linux symlinks to that copy. Rerun setup after changing a checked-in WSL config.
 
 ## Configs and state
@@ -56,3 +56,9 @@ State and logs:
 - `%USERPROFILE%\.win-setup\registry-backups\<timestamp>\**\*.reg`
 
 Successful actions are skipped on rerun. Changing files under `data/` or `configs/`, or changing optional selections reapplies the setup. Delete `state.json` to force a complete rerun.
+
+## Tests
+
+```powershell
+.\tests\run.ps1
+```

@@ -85,15 +85,5 @@ function Invoke-PrivacyTweaks {
         try { Clear-WindowsDiagnosticData | Out-Null } catch { Write-Log "Could not clear existing diagnostic data: $($_.Exception.Message)" "WARN" }
     }
 
-    try {
-        $recall = Get-WindowsOptionalFeature -Online -FeatureName "Recall" -ErrorAction SilentlyContinue
-        if ($recall -and $recall.State -ne "DisabledWithPayloadRemoved") {
-            $result = Disable-WindowsOptionalFeature -Online -FeatureName "Recall" -Remove -NoRestart
-            if ($result.RestartNeeded) { Set-StateValue "rebootRequired" $true }
-        }
-    } catch {
-        Write-Log "Recall removal failed: $($_.Exception.Message)" "WARN"
-        $ok = $false
-    }
     return $ok
 }
