@@ -91,11 +91,11 @@ function Export-RegistryKey {
         }
 
         if (Test-Path $Path) {
-            $output = @(& reg.exe export $nativePath $destination /y 2>&1)
-            $exitCode = $LASTEXITCODE
-            if ($exitCode -ne 0) {
-                foreach ($line in $output) { Write-Log "  $line" "ERROR" }
-                Write-Log "Registry export failed for $nativePath with exit code $exitCode" "ERROR"
+            $nativeResult = Invoke-NativeCommand -FilePath "reg.exe" -ArgumentList @(
+                "export", $nativePath, $destination, "/y"
+            )
+            if ($nativeResult.ExitCode -ne 0) {
+                Write-Log "Registry export failed for $nativePath with exit code $($nativeResult.ExitCode)" "ERROR"
                 return $false
             }
         } else {
@@ -183,8 +183,12 @@ function Set-RegistrySafe {
         try {
             $existing = $key.GetValue($propertyName, $null, [Microsoft.Win32.RegistryValueOptions]::DoNotExpandEnvironmentNames)
             $existingKind = if ($null -ne $existing) { $key.GetValueKind($propertyName) } else { $null }
+            $valueDisplay = if ($Value -is [string]) { '"{0}"' -f $Value } else { [string]$Value }
             if ($null -eq $existing -or $existing -ne $Value -or $existingKind -ne $kind) {
                 $key.SetValue($propertyName, $Value, $kind)
+                Write-Log "  Set registry: ${Path}\${Name} = $valueDisplay ($Type)" "INFO"
+            } else {
+                Write-Log "  Registry already correct: ${Path}\${Name} = $valueDisplay ($Type)" "INFO"
             }
             $success = $true
         } finally {

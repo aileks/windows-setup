@@ -18,11 +18,14 @@ try {
     Set-PSRepository -Name PSGallery -InstallationPolicy $originalPolicy -ErrorAction SilentlyContinue
 }
 '@
-    $output = @(& pwsh -NoProfile -Command $moduleScript 2>&1)
-    $exitCode = $LASTEXITCODE
-    foreach ($line in $output) { Write-Log "  $line" "INFO" }
-    if ($exitCode -ne 0) {
-        Write-Log "PSFzf installation failed with exit code $exitCode" "ERROR"
+    # Windows PowerShell's native argument marshalling strips quotes from a
+    # multiline -Command argument. EncodedCommand keeps the script byte-exact.
+    $encodedScript = [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($moduleScript))
+    $nativeResult = Invoke-NativeCommand -FilePath "pwsh" -ArgumentList @(
+        "-NoProfile", "-EncodedCommand", $encodedScript
+    )
+    if ($nativeResult.ExitCode -ne 0) {
+        Write-Log "PSFzf installation failed with exit code $($nativeResult.ExitCode)" "ERROR"
         return $false
     }
 

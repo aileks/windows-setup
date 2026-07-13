@@ -7,12 +7,11 @@ function Invoke-ConfigDeploy {
     New-ConfigLink "$script:RootDir/configs/bat/ashen.tmTheme" "$env:APPDATA\bat\themes\ashen.tmTheme"
 
     if (Test-SoftwareInstalled -Commands @("bat")) {
-        $output = @(bat cache --build 2>&1)
-        foreach ($line in $output) { Write-Log "  $line" "INFO" }
-        if ($LASTEXITCODE -eq 0) {
+        $nativeResult = Invoke-NativeCommand -FilePath "bat" -ArgumentList @("cache", "--build")
+        if ($nativeResult.ExitCode -eq 0) {
             Write-Log "  Rebuilt bat cache" "INFO"
         } else {
-            Write-Log "  bat cache rebuild failed with exit code $LASTEXITCODE" "WARN"
+            Write-Log "  bat cache rebuild failed with exit code $($nativeResult.ExitCode)" "WARN"
             $ok = $false
         }
     }

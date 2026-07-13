@@ -23,25 +23,27 @@ Set-ExecutionPolicy Bypass -Scope Process
 
 ## Windows
 
-- Enable long paths, four-way symlink evaluation, and Sudo for Windows in `normal` mode.
-- Show extensions and hidden files; hide recent/frequent files and sync-provider ads.
-- Keep the centered, auto-hidden taskbar; remove Search and Widgets from it.
+- Enables long paths, four-way symlink evaluation, and Sudo for Windows in inline mode.
+- Shows extensions and hidden files; hide recent/frequent files and sync-provider ads.
+- Enables taskbar auto-hide and removes search and Task View icons.
 - Disable Widgets, cloud/web search, consumer content, suggestions, tips, and tailored experiences.
-- Set diagnostic data to `0`; disable opt-in UI, extended logs/dumps, feedback prompts, advertising ID, activity upload, speech/input personalization, and location services.
-- Disable Recall snapshots and remove the Recall optional component when present.
-- Keep local clipboard history while disabling cross-device clipboard sync.
-- Activate Ultimate Performance.
+- Disables telemetry, opt-in UI, extended logs/dumps, feedback prompts, advertising ID, activity upload, and speech/input personalization.
+- Disables Recall snapshots and removes the Recall optional component when present.
+- Keeps local clipboard history while disabling cross-device clipboard sync.
+- Activates Ultimate Performance power profile.
+- Installs Adwaita and JetBrains nerd fonts.
 
 Before registry-backed setup actions run, the registry is backed up under `%USERPROFILE%\.win-setup\registry-backups\`.
 
 ## WSL
 
 - Installs Ubuntu 26.04
-- Installs build tools, curl, git, certificates, and unzip.
+- Installs build tools, curl, git, and unzip.
 - Prompts for git setup.
 - Sets zsh as default shell.
 - Installs modern utilities: socat, ripgrep, fzf, fastfetch, bat, eza, zoxide, fd, jq, and Starship.
 - `~/projects` for Linux-hosted repositories.
+- Copies managed configs through `\\wsl.localhost\Ubuntu\home\<user>` into Linux storage, then creates native Linux symlinks to that copy. Rerun setup after changing a checked-in WSL config.
 
 ## Configs and state
 

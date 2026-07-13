@@ -8,7 +8,6 @@ function Invoke-ExplorerTweaks {
             "ShowRecentFiles"               = @{ Value = 0 }
             "ShowFrequentFiles"              = @{ Value = 0 }
             "TaskbarAl"                     = @{ Value = 1 }
-            "TaskbarDa"                     = @{ Value = 0 }
             "TaskbarMn"                     = @{ Value = 0 }
             "ShowTaskViewButton"            = @{ Value = 0 }
             "ShowCopilotButton"             = @{ Value = 0 }
@@ -29,11 +28,15 @@ function Invoke-ExplorerTweaks {
         "HKLM:\SOFTWARE\Policies\Microsoft\Windows\Windows Search" = @{
             "AllowCortana"             = @{ Value = 0 }
             "AllowCloudSearch"         = @{ Value = 0 }
-            "AllowSearchToUseLocation" = @{ Value = 0 }
+            "AllowSearchToUseLocation" = @{ Value = 1 }
             "ConnectedSearchUseWeb"    = @{ Value = 0 }
             "DisableWebSearch"         = @{ Value = 1 }
         }
     }
+
+    # TaskbarDa is protected or unsupported on some Windows 11 builds. The
+    # AllowNewsAndInterests policy above is the supported enforcement point.
+    Write-Log "  Widgets are disabled through HKLM policy; skipping legacy TaskbarDa" "INFO"
 
     if (-not (Set-RegistrySafe -Path "HKCU:\Software\Classes\CLSID\{86ca1aa0-34aa-4e8b-a509-50c905bae2a2}\InprocServer32" -Name "(Default)" -Value "" -Type String -PassThru)) {
         $ok = $false

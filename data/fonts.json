@@ -1,12 +1,24 @@
 {
+  "bucket": {
+    "name": "nerd-fonts",
+    "source": "https://github.com/matthewjberger/scoop-nerd-fonts"
+  },
   "fonts": [
     {
       "name": "Adwaita Mono",
-      "version": "3.4.0",
-      "archiveUrl": "https://github.com/ryanoasis/nerd-fonts/releases/download/v3.4.0/AdwaitaMono.zip",
-      "sha256": "6f0e3e32dcc408196e0abebf953e3e4f6213813b38201d669a33085811f240e1",
+      "package": "AdwaitaMono-NF-Mono",
+      "installedFile": "AdwaitaMonoNerdFontMono-Regular.ttf",
       "monoFace": "AdwaitaMono Nerd Font Mono",
-      "propoFace": "AdwaitaMono Nerd Font Propo"
+      "propoFace": "AdwaitaMono Nerd Font Propo",
+      "role": "terminal"
+    },
+    {
+      "name": "JetBrains Mono",
+      "package": "JetBrainsMono-NF-Propo",
+      "installedFile": "JetBrainsMonoNerdFontPropo-Regular.ttf",
+      "monoFace": "JetBrainsMono NFM",
+      "propoFace": "JetBrainsMono NFP",
+      "role": "komorebi"
     }
   ]
 }

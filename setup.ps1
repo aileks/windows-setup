@@ -10,7 +10,6 @@ if (-not ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdenti
 
 $script:RootDir = $PSScriptRoot
 $script:SetupScript = $PSCommandPath
-$script:TuiActive = $false
 
 foreach ($file in @(
     "lib/State.ps1",
@@ -19,14 +18,24 @@ foreach ($file in @(
     "lib/Registry.ps1",
     "lib/Prompt.ps1",
     "lib/Reboot.ps1",
-    "lib/Result.ps1",
-    "lib/Tui.ps1"
+    "lib/Result.ps1"
 )) {
     . "$script:RootDir/$file"
 }
 
 Get-ChildItem "$script:RootDir/helpers/*.ps1" | Sort-Object Name | ForEach-Object { . $_.FullName }
 Get-ChildItem "$script:RootDir/personal/*.ps1" | Sort-Object Name | ForEach-Object { . $_.FullName }
+
+Write-Host ""
+Write-Host "win-setup changes Windows policies and privacy settings, installs software, links configs," -ForegroundColor Yellow
+Write-Host "configures Ubuntu, and may require another reboot. Existing configs are timestamp-backed up." -ForegroundColor Yellow
+Write-Host "Affected registry subtrees are exported to timestamped native .reg files before changes." -ForegroundColor Yellow
+Write-Host "Bitwarden SSH use disables the Windows OpenSSH Authentication Agent service only after Bitwarden is verified." -ForegroundColor Yellow
+Write-Host ""
+if (-not (Ask-YesNo "Continue with setup?" $false)) {
+    Write-Host "Setup cancelled before changes" -ForegroundColor Yellow
+    exit 0
+}
 
 $stateDir = "$env:USERPROFILE\.win-setup"
 $stateFile = "$stateDir\state.json"
@@ -48,21 +57,8 @@ if (Test-ResumingAfterReboot) {
     Write-Log "Resumed after WSL enablement reboot" "INFO"
 }
 
-if (-not (Initialize-SetupRepository)) { exit 1 }
-
-Write-Host ""
-Write-Host "win-setup changes Windows policies and privacy settings, installs software, links configs," -ForegroundColor Yellow
-Write-Host "configures Ubuntu, and may require another reboot. Existing configs are timestamp-backed up." -ForegroundColor Yellow
-Write-Host "Affected registry subtrees are exported to timestamped native .reg files before changes." -ForegroundColor Yellow
-Write-Host "Bitwarden SSH use disables the Windows OpenSSH Authentication Agent service." -ForegroundColor Yellow
-Write-Host ""
-if (-not (Ask-YesNo "Continue with setup?" $false)) {
-    Write-Log "Setup cancelled before changes" "INFO"
-    exit 0
-}
-
 $catalog = Get-SoftwareCatalog
-$selection = Read-OptionalSoftwareTui -Items @($catalog.optional)
+$selection = Read-OptionalSoftwareSelection -Items @($catalog.optional)
 if ($selection.Cancelled) {
     Write-Log "Setup cancelled from software selection" "INFO"
     exit 0
@@ -85,7 +81,7 @@ if ((Get-StateValue "profileFingerprint") -ne $profileFingerprint) {
     Set-StateValue "profileFingerprint" $profileFingerprint
 }
 
-$registryActionIds = @("adwaita-font", "developer-tweaks", "explorer-tweaks", "privacy-tweaks", "komorebi")
+$registryActionIds = @("nerd-fonts", "developer-tweaks", "explorer-tweaks", "privacy-tweaks", "komorebi")
 $registryBackupNeeded = @($registryActionIds | Where-Object { -not (Test-StateCompleted $_) }).Count -gt 0
 if ($registryBackupNeeded) {
     $registryBackup = New-RegistryBackup -Root "$stateDir\registry-backups" -Paths @(Get-SetupRegistryBackupTargets)
@@ -100,14 +96,21 @@ if ($registryBackupNeeded) {
 $actions = @(
     [PSCustomObject]@{ Id = "windows-software"; Name = "Windows software"; Run = { Invoke-SoftwareInstall -OptionalItems $optionalItems } },
     [PSCustomObject]@{ Id = "windows-cli"; Name = "Windows fallback CLI tools"; Run = { Invoke-CliToolsInstall } },
-    [PSCustomObject]@{ Id = "npiperelay"; Name = "Bitwarden SSH relay"; Run = { Install-NpipeRelay } },
-    [PSCustomObject]@{ Id = "adwaita-font"; Name = "Adwaita Mono Nerd Font"; Run = { Invoke-NerdFontSetup } },
+    [PSCustomObject]@{ Id = "npiperelay"; Name = "Bitwarden SSH relay"; Prerequisite = { Test-BitwardenInstalled }; PrerequisiteMessage = "Bitwarden is not installed"; Run = { Install-NpipeRelay } },
+    [PSCustomObject]@{ Id = "nerd-fonts"; Name = "Installing nerd fonts"; Run = { Invoke-NerdFontSetup } },
     [PSCustomObject]@{ Id = "developer-tweaks"; Name = "Developer mode, paths, symlinks, and sudo"; Run = { Invoke-DeveloperTweaks } },
     [PSCustomObject]@{ Id = "explorer-tweaks"; Name = "Explorer and taskbar tweaks"; Run = { Invoke-ExplorerTweaks } },
     [PSCustomObject]@{ Id = "privacy-tweaks"; Name = "Privacy and telemetry policies"; Run = { Invoke-PrivacyTweaks } },
     [PSCustomObject]@{ Id = "power-plan"; Name = "Ultimate Performance power plan"; Run = { Invoke-PowerPlanTweaks } },
-    [PSCustomObject]@{ Id = "bitwarden-ssh"; Name = "Windows SSH agent handoff"; Run = { Disable-WindowsOpenSshAgent } },
-    [PSCustomObject]@{ Id = "ubuntu-environment"; Name = "Ubuntu daily environment"; Run = { Invoke-WslBootstrap } },
+    [PSCustomObject]@{ Id = "bitwarden-ssh"; Name = "Windows SSH agent handoff"; Prerequisite = { Test-BitwardenInstalled }; PrerequisiteMessage = "Bitwarden is not installed; Windows ssh-agent was left unchanged"; Run = { Disable-WindowsOpenSshAgent } },
+    [PSCustomObject]@{ Id = "ubuntu-environment"; Name = "Ubuntu daily environment"; Run = {
+        $relayPath = Join-Path $env:LOCALAPPDATA "Programs\npiperelay\npiperelay.exe"
+        if ((Test-BitwardenInstalled) -and (Test-Path -LiteralPath $relayPath)) {
+            Invoke-WslBootstrap -RelayPath $relayPath
+        } else {
+            Invoke-WslBootstrap -RelayPath ""
+        }
+    } },
     [PSCustomObject]@{ Id = "vscode-wsl"; Name = "VS Code WSL extension"; Run = { Install-VsCodeWslExtension } },
     [PSCustomObject]@{ Id = "komorebi"; Name = "Komorebi configuration"; Run = { Invoke-KomorebiSetup } },
     [PSCustomObject]@{ Id = "configs"; Name = "Windows config deployment"; Run = { Invoke-ConfigDeploy } },
@@ -115,7 +118,6 @@ $actions = @(
 )
 
 $results = @($actions | ForEach-Object { New-SetupResult -Id $_.Id -Name $_.Name })
-Show-SetupProgress -Results $results
 
 for ($i = 0; $i -lt $actions.Count; $i++) {
     $action = $actions[$i]
@@ -124,21 +126,40 @@ for ($i = 0; $i -lt $actions.Count; $i++) {
     if (Test-StateCompleted $action.Id) {
         $result.Status = "Skipped"
         $result.Message = "already completed"
-        Show-SetupProgress -Results $results
+        Write-Log "Skipped: $($action.Name) (already completed)" "INFO"
+        continue
+    }
+
+    if (($action.PSObject.Properties.Name -contains "Prerequisite") -and -not (& $action.Prerequisite)) {
+        $result.Status = "Failed"
+        $result.ExitCode = 1
+        $result.Message = $action.PrerequisiteMessage
+        Write-Log "Failed: $($action.Name) - $($result.Message)" "ERROR"
+        Set-StateResult $result
         continue
     }
 
     $result.Status = "Running"
     $rebootWasRequired = (Get-StateValue "rebootRequired") -eq $true
-    Show-SetupProgress -Results $results
+    Write-Log "Starting: $($action.Name)" "INFO"
     try {
         $success = & $action.Run
+        if ($action.Id -eq "windows-software") {
+            $result.PackageResults = @($script:LastSoftwarePackageResults)
+        }
         if ($success -eq $true) {
             $result.Status = "Success"
+            Write-Log "Succeeded: $($action.Name)" "SUCCESS"
         } else {
             $result.Status = "Failed"
             $result.ExitCode = 1
-            $result.Message = "see setup log"
+            $failedPackages = @($result.PackageResults | Where-Object { $_.Status -eq "Failed" } | ForEach-Object { $_.Name })
+            $result.Message = if ($failedPackages.Count -gt 0) {
+                "failed packages: $($failedPackages -join ', ')"
+            } else {
+                "see setup log"
+            }
+            Write-Log "Failed: $($action.Name) - $($result.Message)" "ERROR"
         }
     } catch {
         $result.Status = "Failed"
@@ -150,7 +171,6 @@ for ($i = 0; $i -lt $actions.Count; $i++) {
     $rebootIsRequired = (Get-StateValue "rebootRequired") -eq $true
     if (-not $rebootWasRequired -and $rebootIsRequired) { $result.RebootRequired = $true }
     Set-StateResult $result
-    Show-SetupProgress -Results $results
 }
 
 try {

@@ -36,17 +36,17 @@ function Invoke-KomorebiSetup {
         return $false
     }
 
-    $output = @(komorebic fetch-asc 2>&1)
-    foreach ($line in $output) { Write-Log "  $line" "INFO" }
-    if ($LASTEXITCODE -ne 0) { return $false }
+    $nativeResult = Invoke-NativeCommand -FilePath "komorebic" -ArgumentList @("fetch-asc")
+    if ($nativeResult.ExitCode -ne 0) { return $false }
     Write-Log "  Fetched application-specific configs" "INFO"
 
     Get-ScheduledTask -TaskName 'Komorebi' -ErrorAction SilentlyContinue |
         Unregister-ScheduledTask -Confirm:$false
 
-    $output = @(komorebic enable-autostart --whkd --bar --masir 2>&1)
-    foreach ($line in $output) { Write-Log "  $line" "INFO" }
-    if ($LASTEXITCODE -ne 0) { return $false }
+    $nativeResult = Invoke-NativeCommand -FilePath "komorebic" -ArgumentList @(
+        "enable-autostart", "--whkd", "--bar", "--masir"
+    )
+    if ($nativeResult.ExitCode -ne 0) { return $false }
     Write-Log "  Enabled autostart" "INFO"
 
     Write-Log "Komorebi configured." "SUCCESS"

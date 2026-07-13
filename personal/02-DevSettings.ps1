@@ -9,16 +9,16 @@ function Invoke-DeveloperTweaks {
         }
     }
 
-    $fsutilOutput = @(& fsutil behavior set SymlinkEvaluation L2L:1 R2R:1 L2R:1 R2L:1 2>&1)
-    $fsutilOk = $LASTEXITCODE -eq 0
-    foreach ($line in $fsutilOutput) { Write-Log "  $line" "INFO" }
+    $fsutilResult = Invoke-NativeCommand -FilePath "fsutil" -ArgumentList @(
+        "behavior", "set", "SymlinkEvaluation", "L2L:1", "R2R:1", "L2R:1", "R2L:1"
+    )
+    $fsutilOk = $fsutilResult.ExitCode -eq 0
     if (-not $fsutilOk) { Write-Log "Symlink evaluation setup failed" "ERROR" }
 
     $sudoOk = $true
     if (Get-Command sudo -ErrorAction SilentlyContinue) {
-        $sudoOutput = @(& sudo config --enable normal 2>&1)
-        $sudoOk = $LASTEXITCODE -eq 0
-        foreach ($line in $sudoOutput) { Write-Log "  $line" "INFO" }
+        $sudoResult = Invoke-NativeCommand -FilePath "sudo" -ArgumentList @("config", "--enable", "normal")
+        $sudoOk = $sudoResult.ExitCode -eq 0
         if (-not $sudoOk) { Write-Log "Sudo for Windows setup failed" "ERROR" }
     } else {
         Write-Log "Sudo for Windows is unavailable on this build" "ERROR"

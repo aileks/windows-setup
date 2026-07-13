@@ -65,7 +65,9 @@ function Invoke-PrivacyTweaks {
             "AllowInputPersonalization" = @{ Value = 0 }
         }
         "HKLM:\SOFTWARE\Policies\Microsoft\Windows\LocationAndSensors" = @{
-            "DisableWindowsLocationProvider" = @{ Value = 1 }
+            # Keep Windows location services available for maps, weather, and
+            # other apps while retaining the unrelated privacy policies.
+            "DisableWindowsLocationProvider" = @{ Value = 0 }
         }
         "HKCU:\SOFTWARE\Microsoft\Siuf\Rules" = @{
             "NumberOfSIUFInPeriod" = @{ Value = 0 }

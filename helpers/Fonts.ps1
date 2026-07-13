@@ -33,54 +33,121 @@ public static class WinSetupFontChange {
         [IntPtr]0xffff, 0x001D, [UIntPtr]::Zero, [IntPtr]::Zero, 2, 5000, [ref]$result)
 }
 
-function Invoke-NerdFontSetup {
-    $catalog = Get-FontCatalog
-    $font = @($catalog.fonts) | Where-Object { $_.name -eq "Adwaita Mono" } | Select-Object -First 1
-    if ($null -eq $font) { throw "Adwaita Mono is missing from data/fonts.json" }
+function Ensure-Scoop {
+    Refresh-EnvironmentPath
+    if (Get-Command "scoop" -ErrorAction SilentlyContinue) { return $true }
 
-    $tempDir = Join-Path $env:TEMP "win-setup-font-$([guid]::NewGuid())"
-    $archivePath = Join-Path $tempDir "AdwaitaMono.zip"
+    Write-Log "Scoop is unavailable; installing it for the current user..." "INFO"
+    $tempDir = Join-Path $env:TEMP "win-setup-scoop-$([guid]::NewGuid())"
+    $installerPath = Join-Path $tempDir "install.ps1"
     try {
         New-Item -Path $tempDir -ItemType Directory -Force | Out-Null
-        Write-Log "Downloading Adwaita Mono Nerd Font $($font.version)..." "INFO"
-        Invoke-WebRequest -Uri $font.archiveUrl -OutFile $archivePath -UseBasicParsing
-        $actualHash = (Get-FileHash -LiteralPath $archivePath -Algorithm SHA256).Hash.ToLowerInvariant()
-        if ($actualHash -ne $font.sha256.ToLowerInvariant()) {
-            throw "Adwaita Mono archive checksum mismatch"
+        Invoke-WebRequest -Uri "https://get.scoop.sh" -OutFile $installerPath -UseBasicParsing
+        $result = Invoke-NativeCommand -FilePath "powershell.exe" -ArgumentList @(
+            "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", $installerPath, "-RunAsAdmin"
+        )
+        if ($result.ExitCode -ne 0) {
+            Write-Log "Scoop installation failed with exit code $($result.ExitCode)" "ERROR"
+            return $false
         }
-
-        Expand-Archive -LiteralPath $archivePath -DestinationPath $tempDir -Force
-        $fontFiles = @(Get-ChildItem -Path $tempDir -Filter "*.ttf" -File -Recurse)
-        if ($fontFiles.Count -eq 0) { throw "Adwaita Mono archive contained no TrueType fonts" }
-
-        $fontDir = Join-Path $env:LOCALAPPDATA "Microsoft\Windows\Fonts"
-        $registryPath = "HKCU:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Fonts"
-        New-Item -Path $fontDir -ItemType Directory -Force | Out-Null
-        foreach ($file in $fontFiles) {
-            $destination = Join-Path $fontDir $file.Name
-            if ((Test-Path -LiteralPath $destination) -and
-                (Get-FileHash -LiteralPath $destination -Algorithm SHA256).Hash -ne
-                (Get-FileHash -LiteralPath $file.FullName -Algorithm SHA256).Hash) {
-                Copy-Item -LiteralPath $destination -Destination "$destination.bak-$(Get-Date -Format 'yyyyMMdd-HHmmss')"
-            }
-            Copy-Item -LiteralPath $file.FullName -Destination $destination -Force
-            if (-not (Set-RegistrySafe -Path $registryPath -Name "$($file.BaseName) (TrueType)" `
-                -Value $destination -Type String -PassThru)) {
-                throw "Could not register $($file.Name)"
-            }
-        }
-
-        Set-StateValue -Key "selectedNerdFontMonoFace" -Value $font.monoFace
-        Set-StateValue -Key "selectedNerdFontPropoFace" -Value $font.propoFace
-        Publish-FontChange
-        Write-Log "Installed Adwaita Mono Nerd Font" "SUCCESS"
-        return $true
+        Refresh-EnvironmentPath
     } catch {
-        Write-Log "Adwaita Mono installation failed: $($_.Exception.Message)" "ERROR"
+        Write-Log "Scoop installation failed: $($_.Exception.Message)" "ERROR"
         return $false
     } finally {
         if (Test-Path -LiteralPath $tempDir) {
             Remove-Item -LiteralPath $tempDir -Recurse -Force
         }
     }
+
+    if (-not (Get-Command "scoop" -ErrorAction SilentlyContinue)) {
+        Write-Log "Scoop was installed but is not available on PATH" "ERROR"
+        return $false
+    }
+    return $true
+}
+
+function Ensure-ScoopBucket {
+    param(
+        [Parameter(Mandatory)][string]$Name,
+        [Parameter(Mandatory)][string]$Source
+    )
+
+    $listResult = Invoke-NativeCommand -FilePath "scoop" -ArgumentList @("bucket", "list")
+    if ($listResult.ExitCode -eq 0 -and
+        (@($listResult.Output) | Where-Object { $_ -match "^\s*$([regex]::Escape($Name))(?:\s|$)" })) {
+        Write-Log "Scoop bucket '$Name' is already available" "INFO"
+        return $true
+    }
+
+    Write-Log "Adding Scoop bucket '$Name'..." "INFO"
+    $addResult = Invoke-NativeCommand -FilePath "scoop" -ArgumentList @(
+        "bucket", "add", $Name, $Source
+    )
+    if ($addResult.ExitCode -ne 0) {
+        Write-Log "Could not add Scoop bucket '$Name' (exit $($addResult.ExitCode))" "ERROR"
+        return $false
+    }
+    return $true
+}
+
+function Install-ScoopNerdFont {
+    param([Parameter(Mandatory)]$Font)
+
+    $fontFile = Join-Path "$env:LOCALAPPDATA\Microsoft\Windows\Fonts" $Font.installedFile
+    $registryName = "$([IO.Path]::GetFileNameWithoutExtension($Font.installedFile)) (TrueType)"
+    $registeredPath = Get-ItemPropertyValue `
+        -Path "HKCU:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Fonts" `
+        -Name $registryName -ErrorAction SilentlyContinue
+    if ((Test-Path -LiteralPath $fontFile) -and -not [string]::IsNullOrWhiteSpace($registeredPath)) {
+        Write-Log "$($Font.name) is already installed; skipping Scoop migration to avoid overwriting an in-use font" "INFO"
+        return $true
+    }
+
+    Write-Log "Installing $($Font.name) ($($Font.package)) via Scoop..." "INFO"
+    $result = Invoke-NativeCommand -FilePath "scoop" -ArgumentList @("install", $Font.package)
+    if ($result.ExitCode -ne 0) {
+        Write-Log "Scoop failed to install $($Font.package) (exit $($result.ExitCode))" "ERROR"
+        return $false
+    }
+    Write-Log "Installed $($Font.name)" "SUCCESS"
+    return $true
+}
+
+function Invoke-NerdFontSetup {
+    $catalog = Get-FontCatalog
+    $fonts = @($catalog.fonts)
+    if ($fonts.Count -eq 0) {
+        Write-Log "No fonts are defined in data/fonts.json" "ERROR"
+        return $false
+    }
+
+    $terminalFonts = @($fonts | Where-Object { $_.role -eq "terminal" })
+    if ($terminalFonts.Count -ne 1) {
+        Write-Log "Font catalog must contain exactly one font with role 'terminal'" "ERROR"
+        return $false
+    }
+
+    if (-not (Ensure-Scoop)) { return $false }
+    if (-not (Ensure-ScoopBucket -Name $catalog.bucket.name -Source $catalog.bucket.source)) {
+        return $false
+    }
+
+    $allSucceeded = $true
+    $fontsChanged = $false
+
+    foreach ($font in $fonts) {
+        if (Install-ScoopNerdFont -Font $font) {
+            $fontsChanged = $true
+            if ($font.role -eq "terminal") {
+                Set-StateValue -Key "selectedNerdFontMonoFace" -Value $font.monoFace
+                Set-StateValue -Key "selectedNerdFontPropoFace" -Value ""
+            }
+        } else {
+            $allSucceeded = $false
+        }
+    }
+
+    if ($fontsChanged) { Publish-FontChange }
+    return $allSucceeded
 }

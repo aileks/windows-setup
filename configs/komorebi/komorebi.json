@@ -67,6 +67,14 @@
         {
           "name": "V",
           "layout": "BSP"
+        },
+        {
+          "name": "VI",
+          "layout": "BSP"
+        },
+        {
+          "name": "VII",
+          "layout": "BSP"
         }
       ]
     },

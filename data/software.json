@@ -6,7 +6,7 @@
     { "name": "Zen Browser", "id": "Zen-Team.Zen-Browser", "description": "primary browser" },
     { "name": "PowerShell 7", "id": "Microsoft.PowerShell", "description": "Windows fallback shell" },
     { "name": "Windows Terminal", "id": "Microsoft.WindowsTerminal", "description": "terminal host" },
-    { "name": "Bitwarden", "id": "Bitwarden.Bitwarden", "description": "password manager and SSH agent" },
+    { "name": "Bitwarden", "id": "Bitwarden.Bitwarden", "scope": "user", "fallbackId": "9PJSDV0VPK04", "fallbackSource": "msstore", "description": "password manager and SSH agent" },
     { "name": "Komorebi", "id": "LGUG2Z.komorebi", "description": "tiling window manager" },
     { "name": "whkd", "id": "LGUG2Z.whkd", "description": "Komorebi hotkeys" },
     { "name": "masir", "id": "LGUG2Z.masir", "description": "Komorebi focus helper" }

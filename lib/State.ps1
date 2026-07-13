@@ -70,12 +70,19 @@ function Set-StateResult {
         $existing.PSObject.Properties | ForEach-Object { $results[$_.Name] = $_.Value }
     }
 
+    $packageResults = if ($Result.PSObject.Properties.Name -contains "PackageResults") {
+        @($Result.PackageResults)
+    } else {
+        @()
+    }
+
     $results[$Result.Id] = [PSCustomObject]@{
         status         = $Result.Status
         exitCode       = $Result.ExitCode
         message        = $Result.Message
         completedAt    = (Get-Date).ToString("o")
         rebootRequired = $Result.RebootRequired
+        packageResults = $packageResults
     }
     $script:State["results"] = $results
 
