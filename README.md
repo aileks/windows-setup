@@ -31,6 +31,7 @@ Set-ExecutionPolicy Bypass -Scope Process
 - Disables Recall snapshots through Windows policy.
 - Keeps local clipboard history while disabling cross-device clipboard sync.
 - Activates Ultimate Performance power profile.
+- Installs Microsoft Coreutils and other CLI utilities.
 - Installs Adwaita and JetBrains nerd fonts.
 
 Before registry-backed setup actions run, the registry is backed up under `%USERPROFILE%\.win-setup\registry-backups\`.

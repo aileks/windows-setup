@@ -1,6 +1,12 @@
 {
   "tools": [
     {
+      "name": "Coreutils for Windows",
+      "id": "Microsoft.Coreutils",
+      "command": "coreutils-manager",
+      "description": "Unix-style core utilities"
+    },
+    {
       "name": "ripgrep",
       "id": "BurntSushi.ripgrep.MSVC",
       "command": "rg",
