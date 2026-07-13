@@ -37,6 +37,7 @@ backup_and_link() {
 }
 
 backup_and_link "$config_root/wsl/zshrc" "$home_dir/.zshrc"
+backup_and_link "$config_root/nvim" "$home_dir/.config/nvim"
 backup_and_link "$config_root/starship/starship.toml" "$home_dir/.config/starship.toml"
 backup_and_link "$config_root/bat/config" "$home_dir/.config/bat/config"
 backup_and_link "$config_root/bat/ashen.tmTheme" "$home_dir/.config/bat/themes/ashen.tmTheme"
@@ -89,7 +90,8 @@ if [[ -e /etc/wsl.conf ]] && ! cmp -s "$config_root/wsl/wsl.conf" /etc/wsl.conf;
 fi
 install -m 0644 "$config_root/wsl/wsl.conf" /etc/wsl.conf
 chown -h "$linux_user:$linux_user" \
-  "$home_dir/.zshrc" "$home_dir/.config/win-setup/bitwarden-ssh-agent.zsh" \
+  "$home_dir/.zshrc" "$home_dir/.config/nvim" \
+  "$home_dir/.config/win-setup/bitwarden-ssh-agent.zsh" \
   "$home_dir/.config/starship.toml" "$home_dir/.config/bat/config" \
   "$home_dir/.config/bat/themes/ashen.tmTheme" "$home_dir/.local/bin"/* 2>/dev/null || true
 chsh -s /usr/bin/zsh "$linux_user"

@@ -49,6 +49,49 @@ function Invoke-KomorebiSetup {
     if ($nativeResult.ExitCode -ne 0) { return $false }
     Write-Log "  Enabled autostart" "INFO"
 
+    $powerToysSettingsPath = "$env:LOCALAPPDATA\Microsoft\PowerToys\settings.json"
+    $powerToysPath = "$env:LOCALAPPDATA\PowerToys\PowerToys.exe"
+    if ((Test-Path -LiteralPath $powerToysSettingsPath) -and (Test-Path -LiteralPath $powerToysPath)) {
+        try {
+            $powerToysProcesses = @(Get-Process | Where-Object {
+                $_.ProcessName -like "PowerToys*" -or $_.ProcessName -eq "Microsoft.CmdPal.Ext.PowerToys"
+            })
+            $powerToysWasRunning = $powerToysProcesses.Count -gt 0
+            $powerToysProcesses | Stop-Process -Force -ErrorAction SilentlyContinue
+
+            $powerToysSettingsBackup = "$powerToysSettingsPath.win-setup.bak"
+            if (-not (Test-Path -LiteralPath $powerToysSettingsBackup)) {
+                Copy-Item -LiteralPath $powerToysSettingsPath -Destination $powerToysSettingsBackup
+            }
+            $powerToysSettings = Get-Content -LiteralPath $powerToysSettingsPath -Raw | ConvertFrom-Json
+            $powerToysSettings.startup = $false
+            $powerToysJson = $powerToysSettings | ConvertTo-Json -Depth 100
+            [IO.File]::WriteAllText($powerToysSettingsPath, $powerToysJson, [Text.UTF8Encoding]::new($false))
+
+            Get-ScheduledTask -TaskPath "\PowerToys\" -TaskName "Autorun for $env:USERNAME" -ErrorAction SilentlyContinue |
+                Unregister-ScheduledTask -Confirm:$false
+
+            $coordinatorPath = "$script:RootDir\scripts\Startup-Delay.ps1"
+            $coordinatorArgs = "-NoProfile -NonInteractive -WindowStyle Hidden -ExecutionPolicy Bypass -File `"$coordinatorPath`" -PowerToysPath `"$powerToysPath`""
+            $powerToysAction = New-ScheduledTaskAction -Execute "powershell.exe" -Argument $coordinatorArgs
+            $powerToysTrigger = New-ScheduledTaskTrigger -AtLogOn -User "$env:USERDOMAIN\$env:USERNAME"
+            $powerToysPrincipal = New-ScheduledTaskPrincipal -UserId "$env:USERDOMAIN\$env:USERNAME" -LogonType Interactive -RunLevel Highest
+            $powerToysTaskSettings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries `
+                                         -MultipleInstances IgnoreNew -ExecutionTimeLimit (New-TimeSpan -Minutes 2)
+            Register-ScheduledTask -TaskName "PowerToysAfterKomorebi" -Action $powerToysAction -Trigger $powerToysTrigger `
+                -Principal $powerToysPrincipal -Settings $powerToysTaskSettings -Force | Out-Null
+            if ($powerToysWasRunning) {
+                Start-ScheduledTask -TaskName "PowerToysAfterKomorebi"
+            }
+            Write-Log "  Configured PowerToys to start after Komorebi utilities" "INFO"
+        } catch {
+            Write-Log "  Failed to order PowerToys startup: $($_.Exception.Message)" "WARN"
+            return $false
+        }
+    } else {
+        Write-Log "  PowerToys configuration not found; ordered startup was skipped" "INFO"
+    }
+
     Write-Log "Komorebi configured." "SUCCESS"
     Write-Log "  To start now without signing out, run in a normal non-admin terminal: komorebic start --whkd --bar --masir" "INFO"
     return $true

@@ -136,6 +136,7 @@ function Copy-WslConfigPayload {
         @{ Source = "configs\wsl\zsh_plugins.txt"; Relative = "wsl\zsh_plugins.txt" }
         @{ Source = "configs\wsl\wsl.conf"; Relative = "wsl\wsl.conf" }
         @{ Source = "configs\wsl\bitwarden-ssh-agent.zsh"; Relative = "wsl\bitwarden-ssh-agent.zsh" }
+        @{ Source = "configs\wsl\nvim"; Relative = "nvim" }
         @{ Source = "configs\starship\starship.toml"; Relative = "starship\starship.toml" }
         @{ Source = "configs\bat\config"; Relative = "bat\config" }
         @{ Source = "configs\bat\ashen.tmTheme"; Relative = "bat\ashen.tmTheme" }
@@ -152,7 +153,11 @@ function Copy-WslConfigPayload {
             if (-not (Test-Path -LiteralPath $parent)) {
                 New-Item -Path $parent -ItemType Directory -Force | Out-Null
             }
-            Copy-Item -LiteralPath $source -Destination $destination -Force
+            if ((Get-Item -LiteralPath $source).PSIsContainer) {
+                Copy-Item -LiteralPath $source -Destination $destination -Recurse -Force
+            } else {
+                Copy-Item -LiteralPath $source -Destination $destination -Force
+            }
             Write-Log "  Copied $($entry.Source) -> $destination" "INFO"
         }
 
