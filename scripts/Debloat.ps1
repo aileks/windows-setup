@@ -1,7 +1,49 @@
+function Get-ProvisionedPackageNames {
+    param([Parameter(Mandatory)][string]$PackageId)
+
+    $previousErrorActionPreference = $ErrorActionPreference
+    try {
+        $ErrorActionPreference = "Continue"
+        $output = @(& "$env:SystemRoot\System32\dism.exe" /Online /Get-ProvisionedAppxPackages /English 2>&1)
+        $exitCode = $LASTEXITCODE
+    } finally {
+        $ErrorActionPreference = $previousErrorActionPreference
+    }
+    if ($exitCode -ne 0) {
+        throw "DISM provision check failed with exit $exitCode"
+    }
+
+    $displayName = ""
+    $packageNames = foreach ($line in $output) {
+        $text = [string]$line
+        if ($text -match '^DisplayName\s*:\s*(.+)$') {
+            $displayName = $matches[1].Trim()
+        } elseif ($text -match '^PackageName\s*:\s*(.+)$' -and $displayName -eq $PackageId) {
+            $matches[1].Trim()
+        }
+    }
+    return @($packageNames)
+}
+
 function Remove-InboxPackage {
     param([Parameter(Mandatory)][string]$PackageId)
+
+    try {
+        $installed = @(Get-AppxPackage -AllUsers -Name $PackageId -ErrorAction Stop)
+    } catch {
+        Write-Log "App check failed: $PackageId - $($_.Exception.Message)" "WARN"
+        return $false
+    }
+    if ($installed.Count -eq 0) { return $true }
+
     $ok = $true
-    $installed = @(Get-AppxPackage -AllUsers -Name $PackageId -ErrorAction SilentlyContinue)
+    try {
+        $provisioned = @(Get-ProvisionedPackageNames -PackageId $PackageId)
+    } catch {
+        Write-Log "Provision check failed: $PackageId - $($_.Exception.Message)" "WARN"
+        $provisioned = @()
+        $ok = $false
+    }
     foreach ($package in $installed) {
         try {
             Remove-AppxPackage -Package $package.PackageFullName -AllUsers -ErrorAction Stop
@@ -11,10 +53,12 @@ function Remove-InboxPackage {
             $ok = $false
         }
     }
-    $provisioned = @(Get-AppxProvisionedPackage -Online | Where-Object { $_.DisplayName -eq $PackageId })
-    foreach ($package in $provisioned) {
+    foreach ($packageName in $provisioned) {
         try {
-            Remove-AppxProvisionedPackage -Online -PackageName $package.PackageName -AllUsers -ErrorAction Stop | Out-Null
+            $result = Invoke-NativeCommand -FilePath "$env:SystemRoot\System32\dism.exe" -ArgumentList @(
+                "/Online", "/Remove-ProvisionedAppxPackage", "/PackageName:$packageName", "/NoRestart", "/English"
+            ) -NoConsole
+            if (-not $result.Succeeded) { throw "DISM exited with $($result.ExitCode)" }
             Write-Log "Provision removed: $PackageId" "INFO"
         } catch {
             Write-Log "Provision removal failed: $PackageId - $($_.Exception.Message)" "WARN"
@@ -87,7 +131,21 @@ function Remove-OneDriveCompletely {
 
 function Disable-WindowsAiComponents {
     $ok = $true
-    $corePackages = @(Get-AppxPackage -AllUsers -Name "MicrosoftWindows.Client.CoreAI" -ErrorAction SilentlyContinue)
+    try {
+        $corePackages = @(Get-AppxPackage -AllUsers -Name "MicrosoftWindows.Client.CoreAI" -ErrorAction Stop)
+    } catch {
+        Write-Log "CoreAI check failed: $($_.Exception.Message)" "WARN"
+        return $false
+    }
+    $provisioned = @()
+    if ($corePackages.Count -gt 0) {
+        try {
+            $provisioned = @(Get-ProvisionedPackageNames -PackageId "MicrosoftWindows.Client.CoreAI")
+        } catch {
+            Write-Log "CoreAI provision check failed: $($_.Exception.Message)" "WARN"
+            $ok = $false
+        }
+    }
     foreach ($package in $corePackages) {
         try {
             $sid = ([Security.Principal.WindowsIdentity]::GetCurrent()).User.Value
@@ -99,12 +157,12 @@ function Disable-WindowsAiComponents {
             $ok = $false
         }
     }
-    $provisioned = @(Get-AppxProvisionedPackage -Online |
-        Where-Object { $_.DisplayName -eq "MicrosoftWindows.Client.CoreAI" })
-    foreach ($package in $provisioned) {
+    foreach ($packageName in $provisioned) {
         try {
-            Remove-AppxProvisionedPackage -Online -PackageName $package.PackageName `
-                -AllUsers -ErrorAction Stop | Out-Null
+            $result = Invoke-NativeCommand -FilePath "$env:SystemRoot\System32\dism.exe" -ArgumentList @(
+                "/Online", "/Remove-ProvisionedAppxPackage", "/PackageName:$packageName", "/NoRestart", "/English"
+            ) -NoConsole
+            if (-not $result.Succeeded) { throw "DISM exited with $($result.ExitCode)" }
         } catch {
             Write-Log "CoreAI provision failed: $($_.Exception.Message)" "WARN"
             $ok = $false

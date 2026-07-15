@@ -44,23 +44,22 @@ function Invoke-WindowsTerminalSetup {
     if (-not $monoFontFace) { $monoFontFace = "AdwaitaMono Nerd Font Mono" }
     Set-ObjectProperty $defaults "font" ([PSCustomObject]@{ face = $monoFontFace; size = 13 })
 
-    $profileGuid = "{a1d66d88-5f1f-4b6d-a7df-9c768f5bf278}"
-    $distro = Get-StateValue "selectedWslDistro"
-    if ([string]::IsNullOrWhiteSpace($distro)) { $distro = "Ubuntu" }
-    $profiles = @()
+    $legacyProfileGuid = "{a1d66d88-5f1f-4b6d-a7df-9c768f5bf278}"
     if ($settings.profiles.PSObject.Properties.Name -contains "list") {
-        $profiles = @($settings.profiles.list | Where-Object { $_.guid -ne $profileGuid })
+        $profiles = @($settings.profiles.list | Where-Object { $_.guid -ne $legacyProfileGuid })
+        Set-ObjectProperty $settings.profiles "list" $profiles
     }
-    $profiles += [PSCustomObject]@{
-        guid              = $profileGuid
-        name              = "Ubuntu"
-        commandline       = "wsl.exe --distribution $distro --cd ~"
-        icon              = "ms-appx:///ProfileIcons/{9acb9455-ca41-5af7-950f-6bca1bc9722f}.png"
+    if ($settings.defaultProfile -eq $legacyProfileGuid) {
+        $settings.PSObject.Properties.Remove("defaultProfile")
     }
-    Set-ObjectProperty $settings.profiles "list" $profiles
-    Set-ObjectProperty $settings "defaultProfile" $profileGuid
-    $disabledSources = @($settings.disabledProfileSources | Where-Object { $_ -ne "Windows.Terminal.Wsl" })
-    Set-ObjectProperty $settings "disabledProfileSources" @($disabledSources + "Windows.Terminal.Wsl")
+    if (@($settings.disabledProfileSources) -contains "Windows.Terminal.Wsl") {
+        $disabledSources = @($settings.disabledProfileSources | Where-Object { $_ -ne "Windows.Terminal.Wsl" })
+        if ($disabledSources.Count -gt 0) {
+            Set-ObjectProperty $settings "disabledProfileSources" $disabledSources
+        } else {
+            $settings.PSObject.Properties.Remove("disabledProfileSources")
+        }
+    }
 
     $json = $settings | ConvertTo-Json -Depth 30
     [IO.File]::WriteAllText($termSettingsPath, $json, [Text.UTF8Encoding]::new($false))
