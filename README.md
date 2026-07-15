@@ -17,3 +17,5 @@ Set-Location "$env:USERPROFILE\.dotfiles"
 Set-ExecutionPolicy Bypass -Scope Process
 .\setup.ps1
 ```
+
+The setup prompts separately for WSL and Ubuntu. Decline that prompt to continue with Windows setup only.

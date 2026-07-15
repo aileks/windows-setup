@@ -29,7 +29,7 @@ Get-ChildItem "$script:RootDir/scripts/*.ps1" | Sort-Object Name | ForEach-Objec
 if (-not (Test-SupportedEnvironment)) { exit 1 }
 
 Write-Host ""
-Write-Host "Installs software, enables WSL, symlinks configs, and applies system tweaks." -ForegroundColor Yellow
+Write-Host "Installs software, optionally sets up WSL, symlinks configs, and applies system tweaks." -ForegroundColor Yellow
 Write-Host "Backups and restore points enabled." -ForegroundColor Yellow
 Write-Host "OneDrive is removed" -ForegroundColor Red
 Write-Host ""
@@ -37,6 +37,7 @@ if (-not (Ask-YesNo "Continue with setup?" $false)) {
     Write-Host "Setup cancelled" -ForegroundColor Yellow
     exit 0
 }
+$setupWsl = Ask-YesNo "Set up WSL and Ubuntu?" $true
 
 $stateDir = "$env:USERPROFILE\.dotfiles-state"
 $stateFile = "$stateDir\state.json"
@@ -48,7 +49,7 @@ Restore-SystemRestoreFrequency
 $initialRestoreSucceeded = New-SetupRestorePoint -Milestone "initial" `
     -Description "Windows setup script initial state"
 
-if (-not (Test-WslPlatformEnabled)) {
+if ($setupWsl -and -not (Test-WslPlatformEnabled)) {
     if (Ask-YesNo "WSL not enabled. Enable it and reboot?" $true) {
         if (-not (Enable-WslPlatformAndReboot)) { exit 1 }
     }
@@ -84,8 +85,8 @@ $actions = @(
     [PSCustomObject]@{ Id = "windows-software"; Name = "Windows software"; Run = { Invoke-SoftwareInstall } },
     [PSCustomObject]@{ Id = "windows-cli"; Name = "PowerShell CLI tools"; Run = { Invoke-CliToolsInstall } },
     [PSCustomObject]@{ Id = "nerd-fonts"; Name = "Nerd fonts"; Run = { Invoke-NerdFontSetup } },
-    [PSCustomObject]@{ Id = "npiperelay"; Name = "Bitwarden SSH relay"; Prerequisite = { Test-BitwardenInstalled }; PrerequisiteMessage = "Bitwarden is not installed"; Run = { Install-NpipeRelay } },
-    [PSCustomObject]@{ Id = "ubuntu-environment"; Name = "Ubuntu environment"; Run = {
+    [PSCustomObject]@{ Id = "npiperelay"; Name = "Bitwarden SSH relay"; Wsl = $true; Prerequisite = { Test-BitwardenInstalled }; PrerequisiteMessage = "Bitwarden is not installed"; Run = { Install-NpipeRelay } },
+    [PSCustomObject]@{ Id = "ubuntu-environment"; Name = "Ubuntu environment"; Wsl = $true; Run = {
         $relayPath = Join-Path $env:LOCALAPPDATA "Programs\npiperelay\npiperelay.exe"
         if (-not ((Test-BitwardenInstalled) -and (Test-Path -LiteralPath $relayPath))) { $relayPath = "" }
         Invoke-WslBootstrap -RelayPath $relayPath
@@ -113,6 +114,12 @@ $explorerChanged = $false
 for ($i = 0; $i -lt $actions.Count; $i++) {
     $action = $actions[$i]
     $result = $results[$i]
+    if (($action.PSObject.Properties.Name -contains "Wsl") -and $action.Wsl -eq $true -and -not $setupWsl) {
+        $result.Status = "Skipped"
+        $result.Message = "user choice"
+        Write-Log "Skipped: $($action.Name) - user choice" "INFO"
+        continue
+    }
     if ($action.Id -ne "pre-tweaks-safety" -and (Test-StateCompleted $action.Id)) {
         $result.Status = "Skipped"
         $result.Message = "exists"
