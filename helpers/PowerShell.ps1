@@ -25,12 +25,13 @@ try {
         "-NoProfile", "-EncodedCommand", $encodedScript
     )
     if ($nativeResult.ExitCode -ne 0) {
-        Write-Log "PSFzf installation failed with exit code $($nativeResult.ExitCode)" "ERROR"
+        Write-Log "PSFzf failed: exit $($nativeResult.ExitCode)" "ERROR"
         return $false
     }
 
     $profilePath = Join-Path ([Environment]::GetFolderPath("MyDocuments")) "PowerShell\Microsoft.PowerShell_profile.ps1"
-    New-ConfigLink "$script:RootDir/configs/powershell/Microsoft.PowerShell_profile.ps1" $profilePath
+    New-ConfigLink "$script:RootDir/configs/windows/powershell/Microsoft.PowerShell_profile.ps1" $profilePath
+    New-ConfigLink "$script:RootDir/configs/common/starship/starship.toml" "$env:USERPROFILE\.config\starship.toml"
     Write-Log "PowerShell profile linked" "SUCCESS"
     return $true
 }

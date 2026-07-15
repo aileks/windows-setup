@@ -1,27 +1,12 @@
 {
-  "required": [
-    {
-      "name": "VS Code",
-      "id": "Microsoft.VisualStudioCode",
-      "description": "Windows editor with WSL support"
-    },
-    {
-      "name": "LocalSend",
-      "id": "LocalSend.LocalSend",
-      "description": "local device file sharing"
-    },
-    { "name": "VLC", "id": "VideoLAN.VLC", "description": "media playback" },
-    { "name": "Zen Browser", "id": "Zen-Team.Zen-Browser", "description": "primary browser" },
-    {
-      "name": "PowerShell 7",
-      "id": "Microsoft.PowerShell",
-      "description": "Windows fallback shell"
-    },
-    {
-      "name": "Windows Terminal",
-      "id": "Microsoft.WindowsTerminal",
-      "description": "terminal host"
-    },
+  "packages": [
+    { "name": "PowerShell 7", "id": "Microsoft.PowerShell", "description": "Windows fallback shell" },
+    { "name": "Windows Terminal", "id": "Microsoft.WindowsTerminal", "description": "terminal host" },
+    { "name": "VS Code", "id": "Microsoft.VisualStudioCode", "description": "Windows editor with WSL support" },
+    { "name": "Helium", "id": "ImputNet.Helium", "description": "primary browser" },
+    { "name": "LocalSend", "id": "LocalSend.LocalSend", "description": "local device file sharing" },
+    { "name": "Signal", "id": "OpenWhisperSystems.Signal", "description": "private messaging" },
+    { "name": "Raycast", "id": "Raycast.Raycast", "description": "application launcher" },
     {
       "name": "Bitwarden",
       "id": "Bitwarden.Bitwarden",
@@ -30,28 +15,19 @@
       "fallbackSource": "msstore",
       "description": "password manager and SSH agent"
     },
+    { "name": "BCUninstaller", "id": "Klocman.BulkCrapUninstaller", "description": "bulk uninstall cleanup" },
+    { "name": "NVCleanInstall", "id": "TechPowerUp.NVCleanstall", "description": "lean NVIDIA driver installs" },
+    { "name": "7-Zip", "id": "7zip.7zip", "description": "archive handling" },
     { "name": "Komorebi", "id": "LGUG2Z.komorebi", "description": "tiling window manager" },
     { "name": "whkd", "id": "LGUG2Z.whkd", "description": "Komorebi hotkeys" },
     { "name": "masir", "id": "LGUG2Z.masir", "description": "Komorebi focus helper" }
   ],
-  "optional": [
+  "direct": [
     {
-      "name": "BCUninstaller",
-      "id": "Klocman.BulkCrapUninstaller",
-      "description": "bulk uninstall cleanup"
-    },
-    { "name": "Signal", "id": "OpenWhisperSystems.Signal", "description": "private messaging" },
-    {
-      "name": "NVCleanInstall",
-      "id": "TechPowerUp.NVCleanstall",
-      "description": "lean NVIDIA driver installs"
-    },
-    { "name": "7-Zip", "id": "7zip.7zip", "description": "archive handling" },
-    { "name": "PowerToys", "id": "Microsoft.PowerToys", "description": "Windows power-user tools" },
-    {
-      "name": "Windhawk",
-      "id": "RamenSoftware.Windhawk",
-      "description": "Windows shell customization"
+      "name": "Fastmail",
+      "id": "Fastmail.Direct",
+      "url": "https://www.fastmail.com/download/windows/x64/",
+      "description": "Fastmail desktop client"
     }
   ]
 }

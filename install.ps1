@@ -6,7 +6,7 @@ $ErrorActionPreference = "Stop"
 
 $archiveUrl = "https://codeberg.org/aileks/win-setup/archive/main.zip"
 $stateRoot = Join-Path $env:USERPROFILE ".win-setup"
-$sourcePath = Join-Path $stateRoot "source"
+$sourcePath = Join-Path $env:USERPROFILE ".dotfiles"
 $tempPath = Join-Path $env:TEMP "win-setup-bootstrap-$([guid]::NewGuid())"
 $archivePath = Join-Path $tempPath "win-setup.zip"
 $extractPath = Join-Path $tempPath "extract"
@@ -15,7 +15,7 @@ $backupPath = $null
 
 try {
     New-Item -Path $extractPath -ItemType Directory -Force | Out-Null
-    Write-Host "Downloading win-setup..." -ForegroundColor Cyan
+    Write-Host "Downloading setup" -ForegroundColor Cyan
     Invoke-WebRequest -Uri $archiveUrl -OutFile $archivePath -UseBasicParsing
     Expand-Archive -LiteralPath $archivePath -DestinationPath $extractPath -Force
 
@@ -27,7 +27,7 @@ try {
     }
 
     $downloadedSource = $sourceCandidates[0].FullName
-    foreach ($requiredPath in @("configs", "data", "helpers", "lib", "personal", "setup.ps1")) {
+    foreach ($requiredPath in @("configs", "data", "helpers", "lib", "scripts", "setup.ps1")) {
         if (-not (Test-Path -LiteralPath (Join-Path $downloadedSource $requiredPath))) {
             throw "Downloaded archive is missing $requiredPath"
         }
@@ -53,7 +53,7 @@ try {
     }
 
     $setupPath = Join-Path $sourcePath "setup.ps1"
-    Write-Host "Source installed at $sourcePath" -ForegroundColor Green
+    Write-Host "Setup downloaded" -ForegroundColor Green
     & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $setupPath
     if ($LASTEXITCODE -ne 0) {
         throw "setup.ps1 exited with code $LASTEXITCODE"

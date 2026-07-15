@@ -13,75 +13,6 @@ function Get-SoftwareCatalog {
     Get-Content $catalogPath -Raw | ConvertFrom-Json
 }
 
-function Resolve-OptionalSoftwareSelection {
-    param(
-        [Parameter(Mandatory)][AllowEmptyCollection()][object[]]$Items,
-        [AllowNull()][AllowEmptyString()][string]$Response
-    )
-
-    if ([string]::IsNullOrWhiteSpace($Response)) {
-        return [PSCustomObject]@{ Valid = $true; Items = @(); Message = "" }
-    }
-    if ($Response.Trim() -ieq "a") {
-        return [PSCustomObject]@{ Valid = $true; Items = @($Items); Message = "" }
-    }
-
-    $tokens = @($Response -split "[,\s]+" | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })
-    $selectedIndexes = New-Object System.Collections.Generic.List[int]
-    $seen = @{}
-    foreach ($token in $tokens) {
-        $number = 0
-        if (-not [int]::TryParse($token, [ref]$number) -or $number -lt 1 -or $number -gt $Items.Count) {
-            return [PSCustomObject]@{
-                Valid   = $false
-                Items   = @()
-                Message = "Use only numbers 1-$($Items.Count), separated by commas or spaces; 'a' selects all."
-            }
-        }
-        if (-not $seen.ContainsKey($number)) {
-            $seen[$number] = $true
-            $selectedIndexes.Add($number - 1)
-        }
-    }
-
-    $selectedItems = @($selectedIndexes | ForEach-Object { $Items[$_] })
-    return [PSCustomObject]@{ Valid = $true; Items = $selectedItems; Message = "" }
-}
-
-function Read-OptionalSoftwareSelection {
-    param([Parameter(Mandatory)][AllowEmptyCollection()][object[]]$Items)
-
-    if ($Items.Count -eq 0) {
-        return [PSCustomObject]@{ Cancelled = $false; Items = @() }
-    }
-
-    try {
-        if ([Console]::IsInputRedirected) {
-            Write-Log "Input is redirected; no optional software was selected." "INFO"
-            return [PSCustomObject]@{ Cancelled = $false; Items = @() }
-        }
-    } catch {
-        Write-Log "Console input is unavailable; no optional software was selected." "WARN"
-        return [PSCustomObject]@{ Cancelled = $false; Items = @() }
-    }
-
-    Write-Host ""
-    Write-Host "Optional software" -ForegroundColor White
-    for ($index = 0; $index -lt $Items.Count; $index++) {
-        $item = $Items[$index]
-        Write-Host ("  {0}. {1} - {2}" -f ($index + 1), $item.name, $item.description)
-    }
-    Write-Host "Enter numbers separated by commas or spaces, 'a' for all, or press Enter for none." -ForegroundColor DarkGray
-
-    while ($true) {
-        $resolved = Resolve-OptionalSoftwareSelection -Items $Items -Response (Read-Host "Optional software")
-        if ($resolved.Valid) {
-            return [PSCustomObject]@{ Cancelled = $false; Items = @($resolved.Items) }
-        }
-        Write-Host "Invalid selection. $($resolved.Message)" -ForegroundColor Yellow
-    }
-}
-
 function Test-SoftwareInstalled {
     param(
         [string[]]$Commands = @(),
@@ -97,7 +28,7 @@ function Test-SoftwareInstalled {
         try {
             if (& $Detector) { return $true }
         } catch {
-            Write-Log "  Install detection failed: $($_.Exception.Message)" "WARN"
+            Write-Log "Detection failed: $($_.Exception.Message)" "WARN"
         }
     }
 
@@ -105,33 +36,46 @@ function Test-SoftwareInstalled {
 }
 
 function Ensure-WinGet {
+    [Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor `
+        [Net.SecurityProtocolType]::Tls12
     Refresh-EnvironmentPath
-    if (Get-Command winget -ErrorAction SilentlyContinue) { return $true }
+    if (Get-Command winget -ErrorAction SilentlyContinue) {
+        $sourceResult = Invoke-NativeCommand -FilePath "winget" -ArgumentList @("source", "update") -NoConsole
+        if ($sourceResult.ExitCode -eq 0) { return $true }
+        Write-Log "Repairing WinGet" "INFO"
+    } else {
+        Write-Log "Installing WinGet" "INFO"
+    }
 
-    Write-Log "winget not found, installing via Microsoft.WinGet.Client..." "INFO"
     try {
-        Install-PackageProvider -Name NuGet -Force | Out-Host
+        Install-PackageProvider -Name NuGet -Force | Out-Null
         $repository = Get-PSRepository -Name PSGallery -ErrorAction SilentlyContinue
         $originalPolicy = if ($repository) { $repository.InstallationPolicy } else { "Untrusted" }
         try {
             Set-PSRepository -Name PSGallery -InstallationPolicy Trusted -ErrorAction Stop
-            Install-Module -Name Microsoft.WinGet.Client -Force -AllowClobber -Verbose
-            Repair-WinGetPackageManager -AllUsers | Out-Host
+            Install-Module -Name Microsoft.WinGet.Client -Force -AllowClobber
+            Repair-WinGetPackageManager -AllUsers | Out-Null
         } finally {
             Set-PSRepository -Name PSGallery -InstallationPolicy $originalPolicy -ErrorAction SilentlyContinue
         }
         Refresh-EnvironmentPath
     } catch {
-        Write-Log "  Failed to install winget: $($_.Exception.Message)" "ERROR"
+        Write-Log "WinGet failed: $($_.Exception.Message)" "ERROR"
         return $false
     }
 
     if (-not (Get-Command winget -ErrorAction SilentlyContinue)) {
-        Write-Log "  winget still not found. Install winget manually and re-run." "ERROR"
+        Write-Log "WinGet unavailable after install" "ERROR"
         return $false
     }
 
-    Write-Log "winget is available" "SUCCESS"
+    $null = Invoke-NativeCommand -FilePath "winget" -ArgumentList @("source", "reset", "--force") -NoConsole
+    $sourceResult = Invoke-NativeCommand -FilePath "winget" -ArgumentList @("source", "update") -NoConsole
+    if ($sourceResult.ExitCode -ne 0) {
+        Write-Log "WinGet sources failed" "ERROR"
+        return $false
+    }
+    Write-Log "WinGet ready" "SUCCESS"
     return $true
 }
 
@@ -187,10 +131,10 @@ function Test-BitwardenInstalled {
     }
 
     if (-not $wingetRegistered) {
-        Write-Log "  Bitwarden was not found in winget's installed-package registration." "WARN"
+        Write-Log "Bitwarden missing from WinGet" "WARN"
     }
     if (-not $userRegistered) {
-        Write-Log "  Bitwarden has no per-user uninstall or Appx registration." "WARN"
+        Write-Log "Bitwarden registration missing" "WARN"
     }
     return $wingetRegistered -and $userRegistered
 }
@@ -232,16 +176,16 @@ function Install-WinGetPackage {
     } else {
         Test-WinGetPackageInstalled -PackageId $PackageId -Source $Source
     }
-    Write-Log "  Validating $Name package ID ($PackageId)..." "INFO"
+    Write-Log "Checking package: $Name" "INFO"
     $primaryValid = Test-WinGetPackageId -PackageId $PackageId -Source $Source
     if ($alreadyInstalled) {
         $packageResult.Status = "Skipped"
         $packageResult.Verified = $true
         $packageResult.Verification = "already installed and verified"
         if (-not $primaryValid) {
-            Write-Log "  $Name is installed, but its source ID could not be validated right now." "WARN"
+            Write-Log "Package source unverified: $Name" "WARN"
         }
-        Write-Log "  Skipped $Name; it is already installed and verified." "SUCCESS"
+        Write-Log "Package exists: $Name" "INFO"
         if ($PassThru) { return $packageResult }
         return $true
     }
@@ -249,7 +193,7 @@ function Install-WinGetPackage {
     $candidates = New-Object System.Collections.Generic.List[object]
     $candidates.Add([PSCustomObject]@{ Id = $PackageId; Source = $Source; Scope = $Scope; Valid = $primaryValid })
     if (-not [string]::IsNullOrWhiteSpace($FallbackId)) {
-        Write-Log "  Validating fallback package ID ($FallbackId)..." "INFO"
+        Write-Log "Checking fallback: $Name" "INFO"
         $fallbackValid = Test-WinGetPackageId -PackageId $FallbackId -Source $FallbackSource
         $candidates.Add([PSCustomObject]@{ Id = $FallbackId; Source = $FallbackSource; Scope = ""; Valid = $fallbackValid })
     }
@@ -263,12 +207,12 @@ function Install-WinGetPackage {
                 ExitCode  = 2
                 Status    = "InvalidPackageId"
             }
-            Write-Log "  Exact winget lookup failed for $($candidate.Id); skipping that installer." "WARN"
+            Write-Log "Package unavailable: $($candidate.Id)" "WARN"
             continue
         }
 
         $sourceLabel = if ($candidate.Source) { $candidate.Source } else { "winget" }
-        Write-Log "  Installing $Name ($($candidate.Id)) via $sourceLabel..." "INFO"
+        Write-Log "Installing package: $Name" "INFO"
         $arguments = @(
             "install", "--id", $candidate.Id, "--exact",
             "--accept-package-agreements", "--accept-source-agreements",
@@ -293,7 +237,7 @@ function Install-WinGetPackage {
         $packageResult.ExitCode = $nativeResult.ExitCode
 
         if ($nativeResult.ExitCode -ne 0) {
-            Write-Log "  Installer failed for $Name ($($candidate.Id)) with exit code $($nativeResult.ExitCode)." "WARN"
+            Write-Log "Package failed: $Name - exit $($nativeResult.ExitCode)" "WARN"
             continue
         }
 
@@ -306,49 +250,107 @@ function Install-WinGetPackage {
             $packageResult.Status = "Success"
             $packageResult.Verified = $true
             $packageResult.Verification = "winget and installation registration verified"
-            Write-Log "  Installed and verified $Name" "SUCCESS"
+            Write-Log "Package installed: $Name" "SUCCESS"
             if ($PassThru) { return $packageResult }
             return $true
         }
 
         $packageResult.Verification = "installer exited successfully, but verification failed"
         $packageResult.ExitCode = 1
-        Write-Log "  $Name installer exited successfully, but post-install verification failed." "WARN"
+        Write-Log "Package unverified: $Name" "WARN"
     }
 
     $packageResult.Status = "Failed"
     if ($packageResult.Attempts.Count -eq 0) { $packageResult.ExitCode = 2 }
     if ($packageResult.Verification -eq "pending") { $packageResult.Verification = "not installed" }
-    Write-Log "  Failed to install and verify $Name after $($packageResult.Attempts.Count) attempt(s)." "ERROR"
+    Write-Log "Package failed: $Name" "ERROR"
     if ($PassThru) { return $packageResult }
     return $false
 }
 
+function Test-FastmailInstalled {
+    foreach ($root in @(
+        "HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*",
+        "HKLM:\Software\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*",
+        "HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*"
+    )) {
+        if (Get-ItemProperty -Path $root -ErrorAction SilentlyContinue |
+            Where-Object { $_.DisplayName -like "Fastmail*" } | Select-Object -First 1) {
+            return $true
+        }
+    }
+    return $false
+}
+
+function Install-Fastmail {
+    param([Parameter(Mandatory)]$Item)
+    $result = New-SoftwarePackageResult -PackageId $Item.id -Name $Item.name
+    if (Test-FastmailInstalled) {
+        $result.Status = "Skipped"
+        $result.Verified = $true
+        $result.Verification = "already installed and verified"
+        return $result
+    }
+
+    $tempDir = Join-Path $env:TEMP "win-setup-fastmail-$([guid]::NewGuid())"
+    $installer = Join-Path $tempDir "Fastmail-Setup.exe"
+    try {
+        New-Item -Path $tempDir -ItemType Directory -Force | Out-Null
+        Write-Log "Downloading Fastmail" "INFO"
+        Invoke-WebRequest -Uri $Item.url -OutFile $installer -UseBasicParsing
+        $signature = Get-AuthenticodeSignature -FilePath $installer
+        if ($signature.Status -ne "Valid" -or
+            $null -eq $signature.SignerCertificate -or
+            $signature.SignerCertificate.Subject -notmatch "Fastmail Pty Ltd") {
+            throw "Fastmail installer signature is not valid for Fastmail Pty Ltd"
+        }
+        $native = Invoke-NativeCommand -FilePath $installer -ArgumentList @("/S")
+        $result.Attempts += [PSCustomObject]@{
+            PackageId = $Item.id; Source = $Item.url; Scope = "machine"
+            ExitCode = $native.ExitCode; Status = if ($native.ExitCode -eq 0) { "Completed" } else { "Failed" }
+        }
+        $result.ExitCode = $native.ExitCode
+        if ($native.ExitCode -ne 0 -or -not (Test-FastmailInstalled)) {
+            throw "Fastmail installation verification failed"
+        }
+        $result.Status = "Success"
+        $result.Verified = $true
+        $result.Verification = "signature and installation registration verified"
+        Write-Log "Fastmail installed" "SUCCESS"
+    } catch {
+        $result.Status = "Failed"
+        $result.ExitCode = if ($result.ExitCode) { $result.ExitCode } else { 1 }
+        $result.Verification = $_.Exception.Message
+        Write-Log "Fastmail failed: $($_.Exception.Message)" "ERROR"
+    } finally {
+        if (Test-Path -LiteralPath $tempDir) { Remove-Item -LiteralPath $tempDir -Recurse -Force }
+    }
+    return $result
+}
+
 function Invoke-SoftwareInstall {
-    param([object[]]$OptionalItems = @())
-
     $catalog = Get-SoftwareCatalog
-    $selected = @(@($catalog.required) + @($OptionalItems))
-    Set-StateValue -Key "selectedOptionalSoftwareIds" -Value @($OptionalItems | ForEach-Object { $_.id })
+    $selected = @($catalog.packages)
+    $packageResults = New-Object System.Collections.Generic.List[object]
 
-    if (-not (Ensure-WinGet)) {
-        $script:LastSoftwarePackageResults = @($selected | ForEach-Object {
-            $failedResult = New-SoftwarePackageResult -PackageId $_.id -Name $_.name
+    if (Ensure-WinGet) {
+        Write-Log "Installing software" "INFO"
+        foreach ($item in $selected) {
+            $result = Install-WinGetPackage -PackageId $item.id -Name $item.name -Source $item.source `
+                -Scope $item.scope -FallbackId $item.fallbackId -FallbackSource $item.fallbackSource -PassThru
+            $packageResults.Add($result)
+        }
+    } else {
+        foreach ($item in $selected) {
+            $failedResult = New-SoftwarePackageResult -PackageId $item.id -Name $item.name
             $failedResult.Status = "Failed"
             $failedResult.ExitCode = 1
             $failedResult.Verification = "winget unavailable"
-            $failedResult
-        })
-        Set-StateValue -Key "softwarePackageResults" -Value @($script:LastSoftwarePackageResults)
-        return $false
+            $packageResults.Add($failedResult)
+        }
     }
-
-    Write-Log "Installing Windows software..." "INFO"
-    $packageResults = New-Object System.Collections.Generic.List[object]
-    foreach ($item in $selected) {
-        $result = Install-WinGetPackage -PackageId $item.id -Name $item.name -Source $item.source `
-            -Scope $item.scope -FallbackId $item.fallbackId -FallbackSource $item.fallbackSource -PassThru
-        $packageResults.Add($result)
+    foreach ($item in @($catalog.direct)) {
+        $packageResults.Add((Install-Fastmail -Item $item))
     }
 
     # Windows PowerShell 5.1 can throw "Argument types do not match" when an

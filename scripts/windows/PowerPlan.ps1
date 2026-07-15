@@ -1,8 +1,8 @@
 function Invoke-PowerPlanTweaks {
-    Write-Log "Enabling Ultimate Performance power plan..." "INFO"
+    Write-Log "Configuring power plan" "INFO"
     $listResult = Invoke-NativeCommand -FilePath "powercfg" -ArgumentList @("/list")
     if ($listResult.ExitCode -ne 0) {
-        Write-Log "Could not list power plans" "ERROR"
+        Write-Log "Power plans unavailable" "ERROR"
         return $false
     }
     $existing = @($listResult.Output) | Select-String "Ultimate Performance"
@@ -11,7 +11,7 @@ function Invoke-PowerPlanTweaks {
             "-duplicatescheme", "e9a42b02-d5df-448d-aa00-03f14749eb61"
         )
         if ($duplicateResult.ExitCode -ne 0) {
-            Write-Log "Could not create Ultimate Performance power plan" "ERROR"
+            Write-Log "Power plan creation failed" "ERROR"
             return $false
         }
     }
@@ -19,15 +19,15 @@ function Invoke-PowerPlanTweaks {
     $listResult = Invoke-NativeCommand -FilePath "powercfg" -ArgumentList @("/list")
     $match = @($listResult.Output) | Select-String "Ultimate Performance" | Select-Object -First 1
     if (-not $match) {
-        Write-Log "Could not find Ultimate Performance power plan" "ERROR"
+        Write-Log "Power plan unavailable" "ERROR"
         return $false
     }
     $guid = ($match.Line -split '\s+')[3]
     $activeResult = Invoke-NativeCommand -FilePath "powercfg" -ArgumentList @("-setactive", $guid)
     if ($activeResult.ExitCode -ne 0) {
-        Write-Log "Could not activate Ultimate Performance power plan" "ERROR"
+        Write-Log "Power plan activation failed" "ERROR"
         return $false
     }
-    Write-Log "Ultimate Performance plan active: $guid" "SUCCESS"
+    Write-Log "Power plan configured" "SUCCESS"
     return $true
 }

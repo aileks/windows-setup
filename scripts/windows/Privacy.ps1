@@ -1,5 +1,5 @@
 function Invoke-PrivacyTweaks {
-    Write-Log "Applying privacy policies..." "INFO"
+    Write-Log "Configuring privacy" "INFO"
     $ok = Set-RegistryBatch @{
         "HKLM:\SOFTWARE\Policies\Microsoft\Windows\DataCollection" = @{
             "AllowTelemetry"                         = @{ Value = 0 }
@@ -10,6 +10,9 @@ function Invoke-PrivacyTweaks {
             "DoNotShowFeedbackNotifications"         = @{ Value = 1 }
             "AllowDeviceNameInTelemetry"              = @{ Value = 0 }
             "AllowExperimentation"                    = @{ Value = 0 }
+        }
+        "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\DataCollection" = @{
+            "AllowTelemetry" = @{ Value = 0 }
         }
         "HKLM:\SOFTWARE\Policies\Microsoft\Windows\AdvertisingInfo" = @{
             "DisabledByGroupPolicy" = @{ Value = 1 }
@@ -79,10 +82,48 @@ function Invoke-PrivacyTweaks {
             "AllowRecallEnablement" = @{ Value = 0 }
             "DisableAIDataAnalysis"  = @{ Value = 1 }
         }
+        "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\Explorer" = @{
+            "SettingsPageVisibility" = @{ Value = "hide:aicomponents"; Type = "String" }
+        }
+        "HKLM:\SOFTWARE\Policies\WindowsNotepad" = @{
+            "DisableAIFeatures" = @{ Value = 1 }
+        }
+        "HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate" = @{
+            "ExcludeWUDriversInQualityUpdate" = @{ Value = 1 }
+        }
+        "HKLM:\SOFTWARE\Policies\Microsoft\Windows\OneDrive" = @{
+            "DisableFileSyncNGSC" = @{ Value = 1 }
+        }
+        "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager" = @{
+            "DisableWpbtExecution" = @{ Value = 1 }
+        }
+        "HKCU:\Software\Microsoft\Input\TIPC" = @{
+            "Enabled" = @{ Value = 0 }
+        }
+        "HKCU:\Software\Microsoft\InputPersonalization" = @{
+            "RestrictImplicitInkCollection"  = @{ Value = 1 }
+            "RestrictImplicitTextCollection" = @{ Value = 1 }
+        }
+        "HKCU:\Software\Microsoft\InputPersonalization\TrainedDataStore" = @{
+            "HarvestContacts" = @{ Value = 0 }
+        }
+        "HKCU:\Software\Microsoft\Personalization\Settings" = @{
+            "AcceptedPrivacyPolicy" = @{ Value = 0 }
+        }
     }
 
+    try {
+        Set-MpPreference -SubmitSamplesConsent 2 -ErrorAction Stop
+    } catch {
+        Write-Log "Defender samples failed: $($_.Exception.Message)" "WARN"
+        $ok = $false
+    }
+    [Environment]::SetEnvironmentVariable("POWERSHELL_TELEMETRY_OPTOUT", "1", "Machine")
+    Remove-ItemProperty -Path "HKCU:\Software\Microsoft\Siuf\Rules" `
+        -Name "PeriodInNanoSeconds" -ErrorAction SilentlyContinue
+
     if (Get-Command Clear-WindowsDiagnosticData -ErrorAction SilentlyContinue) {
-        try { Clear-WindowsDiagnosticData | Out-Null } catch { Write-Log "Could not clear existing diagnostic data: $($_.Exception.Message)" "WARN" }
+        try { Clear-WindowsDiagnosticData | Out-Null } catch { Write-Log "Diagnostics cleanup failed: $($_.Exception.Message)" "WARN" }
     }
 
     return $ok

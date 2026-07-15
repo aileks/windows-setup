@@ -11,7 +11,7 @@ function Invoke-CliToolsInstall {
     $catalog = Get-CliToolsCatalog
     if (-not (Ensure-WinGet)) { return $false }
 
-    Write-Log "Installing Windows fallback CLI tools..." "INFO"
+    Write-Log "Installing CLI tools" "INFO"
     $succeeded = $true
     foreach ($tool in @($catalog.tools)) {
         if (-not (Install-WinGetPackage -PackageId $tool.id -Name $tool.name)) {

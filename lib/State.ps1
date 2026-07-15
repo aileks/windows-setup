@@ -23,10 +23,11 @@ function Load-State {
         $script:State = @{}
     }
 
-    if (-not $script:State.ContainsKey("version")) { $script:State["version"] = 2 }
+    $script:State["version"] = 3
     if (-not $script:State.ContainsKey("completed")) { $script:State["completed"] = @() }
     if (-not $script:State.ContainsKey("results")) { $script:State["results"] = @{} }
     if (-not $script:State.ContainsKey("resumeAfterReboot")) { $script:State["resumeAfterReboot"] = $false }
+    if (-not $script:State.ContainsKey("safetyMilestones")) { $script:State["safetyMilestones"] = @{} }
     $script:State
 }
 

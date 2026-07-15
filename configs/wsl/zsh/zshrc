@@ -1,11 +1,11 @@
-typeset -U path PATH
-path=("$HOME/.local/bin" $path)
+# PATH
+export PATH="$HOME/.local/bin:$PATH"
 
 # Core environment
 export EDITOR="nvim"
 export VISUAL="$EDITOR"
 export SUDO_EDITOR="$VISUAL"
-export MANPAGER='bat --theme="ashen" -plman'
+export MANPAGER='bat --theme="cinder-grove" -plman'
 [[ -r "$HOME/.config/win-setup/bitwarden-ssh-agent.zsh" ]] && \
   source "$HOME/.config/win-setup/bitwarden-ssh-agent.zsh"
 bindkey -e
@@ -41,9 +41,8 @@ setopt HIST_VERIFY
 setopt SHARE_HISTORY
 setopt INC_APPEND_HISTORY
 
-# Completion: case-insensitive, partial-word, and substring matching
-zstyle ':completion:*' matcher-list \
-  'm:{a-zA-Z}={A-Za-z}' 'r:|[._-]=* r:|=*' 'l:|=* r:|=*'
+# Completion: case-insensitive + partial-word + substring
+zstyle ':completion:*' matcher-list 'm:{a-zA-Z}={A-Za-z}' 'r:|[._-]=* r:|=*' 'l:|=* r:|=*'
 
 # General aliases
 alias ls="eza --color=always --icons --group-directories-first"
@@ -54,7 +53,6 @@ alias c="clear"
 alias fzf="fzf --style full"
 alias ff="fastfetch"
 alias vim="nvim"
-command -v podman >/dev/null && alias docker="podman"
 
 # FZF
 export FZF_CTRL_T_OPTS="
@@ -65,21 +63,21 @@ export FZF_ALT_C_OPTS="
   --walker-skip .git,node_modules,target
   --preview 'eza --tree --color=always --icons {}'"
 export FZF_DEFAULT_OPTS="
-  --color=fg:#a7a7a7
-  --color=fg+:#d5d5d5
-  --color=bg:#121212
-  --color=bg+:#323232
-  --color=hl:#C4693D
-  --color=hl+:#E49A44
-  --color=info:#a7a7a7
-  --color=marker:#C4693D
-  --color=prompt:#C4693D
-  --color=spinner:#D87C4A
-  --color=pointer:#E5A72A
-  --color=header:#B14242
-  --color=border:#a7a7a7
-  --color=query:#d5d5d5
-  --color=gutter:#121212
+  --color=fg:#ACA49B
+  --color=fg+:#DDD5CA
+  --color=bg:#131210
+  --color=bg+:#34312d
+  --color=hl:#C87546
+  --color=hl+:#E8A64D
+  --color=info:#ACA49B
+  --color=marker:#C87546
+  --color=prompt:#C87546
+  --color=spinner:#DC8853
+  --color=pointer:#D9A441
+  --color=header:#B34A45
+  --color=border:#ACA49B
+  --color=query:#DDD5CA
+  --color=gutter:#131210
   --highlight-line
   --info=inline-right
   --layout=reverse
@@ -96,28 +94,14 @@ export _ZO_FZF_OPTS="
   --bind 'ctrl-b:preview-up,ctrl-f:preview-down'
   --bind 'ctrl-/:change-preview-window(right|hidden|)'"
 
-# Antidote plugin manager
-if [[ -f "${ZDOTDIR:-$HOME}/.antidote/antidote.zsh" ]]; then
-  source "${ZDOTDIR:-$HOME}/.antidote/antidote.zsh"
+# antidote plugin manager
+if [[ -f /usr/share/zsh-antidote/antidote.zsh ]]; then
+  source /usr/share/zsh-antidote/antidote.zsh
   antidote load "${${(%):-%N}:A:h}/zsh_plugins.txt"
+  source "${${(%):-%N}:A:h}/cinder-grove.zsh"
 fi
 
-# Interactive tools
-command -v fzf >/dev/null && source <(fzf --zsh)
-command -v zoxide >/dev/null && eval "$(zoxide init zsh)"
-command -v starship >/dev/null && eval "$(starship init zsh)"
-
-if [[ -r "$HOME/.local/bin/env" ]]; then
-  . "$HOME/.local/bin/env"
-fi
-
-# pnpm
-export PNPM_HOME="$HOME/.local/share/pnpm"
-case ":$PATH:" in
-  *":$PNPM_HOME/bin:"*) ;;
-  *) export PATH="$PNPM_HOME/bin:$PATH" ;;
-esac
-
-export NVM_DIR="$HOME/.nvm"
-[[ -s "$NVM_DIR/nvm.sh" ]] && source "$NVM_DIR/nvm.sh"
-[[ -s "$NVM_DIR/bash_completion" ]] && source "$NVM_DIR/bash_completion"
+# Evals
+source <(fzf --zsh)
+eval "$(zoxide init zsh)"
+eval "$(starship init zsh)"

@@ -69,15 +69,31 @@ vim.api.nvim_create_autocmd('TextYankPost', {
   end,
 })
 
-vim.pack.add({
-  { src = 'https://github.com/ficd0/ashen.nvim' },
-  { src = 'https://github.com/nvim-lualine/lualine.nvim' },
-  { src = 'https://github.com/lukas-reineke/indent-blankline.nvim' },
-  { src = 'https://github.com/YousefHadder/markdown-plus.nvim' },
-})
+local plugins = {
+  { name = 'cinder-grove.nvim', src = 'https://github.com/aileks/cinder-grove.nvim' },
+  { name = 'lualine.nvim', src = 'https://github.com/nvim-lualine/lualine.nvim' },
+  { name = 'indent-blankline.nvim', src = 'https://github.com/lukas-reineke/indent-blankline.nvim' },
+  { name = 'markdown-plus.nvim', src = 'https://github.com/YousefHadder/markdown-plus.nvim' },
+}
 
-require('ashen').setup({ transparent = true })
-vim.cmd.colorscheme('ashen')
+if vim.pack then
+  vim.pack.add(vim.tbl_map(function(plugin)
+    return { src = plugin.src }
+  end, plugins))
+else
+  local package_root = vim.fn.stdpath('data') .. '/site/pack/win-setup/start'
+  vim.fn.mkdir(package_root, 'p')
+  for _, plugin in ipairs(plugins) do
+    local path = package_root .. '/' .. plugin.name
+    if vim.fn.isdirectory(path) == 0 then
+      vim.fn.system({ 'git', 'clone', '--depth=1', '--filter=blob:none', plugin.src, path })
+    end
+    vim.opt.runtimepath:prepend(path)
+  end
+end
+
+require('cinder-grove').setup({ transparent = true })
+vim.cmd.colorscheme('cinder-grove')
 
 require('lualine').setup({
   options = {

@@ -1,10 +1,12 @@
 function Register-ResumeAfterReboot {
     param([string]$ScriptPath)
 
-    Set-ItemProperty -Path "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\RunOnce" `
+    $runOnce = "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\RunOnce"
+    if (-not (Test-Path $runOnce)) { New-Item -Path $runOnce -Force | Out-Null }
+    New-ItemProperty -Path $runOnce `
         -Name "WinSetup_Resume" `
         -Value "powershell.exe -NoExit -ExecutionPolicy Bypass -NoProfile -File `"$ScriptPath`"" `
-        -Type String -Force
+        -PropertyType String -Force | Out-Null
 
     Set-StateValue "resumeAfterReboot" $true
 }

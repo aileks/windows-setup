@@ -37,7 +37,7 @@ function Ensure-Scoop {
     Refresh-EnvironmentPath
     if (Get-Command "scoop" -ErrorAction SilentlyContinue) { return $true }
 
-    Write-Log "Scoop is unavailable; installing it for the current user..." "INFO"
+    Write-Log "Installing Scoop" "INFO"
     $tempDir = Join-Path $env:TEMP "win-setup-scoop-$([guid]::NewGuid())"
     $installerPath = Join-Path $tempDir "install.ps1"
     try {
@@ -47,12 +47,12 @@ function Ensure-Scoop {
             "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", $installerPath, "-RunAsAdmin"
         )
         if ($result.ExitCode -ne 0) {
-            Write-Log "Scoop installation failed with exit code $($result.ExitCode)" "ERROR"
+            Write-Log "Scoop failed: exit $($result.ExitCode)" "ERROR"
             return $false
         }
         Refresh-EnvironmentPath
     } catch {
-        Write-Log "Scoop installation failed: $($_.Exception.Message)" "ERROR"
+        Write-Log "Scoop failed: $($_.Exception.Message)" "ERROR"
         return $false
     } finally {
         if (Test-Path -LiteralPath $tempDir) {
@@ -61,7 +61,7 @@ function Ensure-Scoop {
     }
 
     if (-not (Get-Command "scoop" -ErrorAction SilentlyContinue)) {
-        Write-Log "Scoop was installed but is not available on PATH" "ERROR"
+        Write-Log "Scoop unavailable after install" "ERROR"
         return $false
     }
     return $true
@@ -73,14 +73,24 @@ function Ensure-ScoopBucket {
         [Parameter(Mandatory)][string]$Source
     )
 
+    if (-not (Get-Command git -ErrorAction SilentlyContinue)) {
+        Write-Log "Installing Scoop Git" "INFO"
+        $gitResult = Invoke-NativeCommand -FilePath "scoop" -ArgumentList @("install", "git")
+        if ($gitResult.ExitCode -ne 0) {
+            Write-Log "Scoop Git failed: exit $($gitResult.ExitCode)" "ERROR"
+            return $false
+        }
+        Refresh-EnvironmentPath
+    }
+
     $scoopRoot = if ([string]::IsNullOrWhiteSpace($env:SCOOP)) {
-        Join-Path $HOME "scoop"
+        Join-Path $env:USERPROFILE "scoop"
     } else {
         $env:SCOOP
     }
     $bucketPath = Join-Path $scoopRoot "buckets\$Name"
     if (Test-Path -LiteralPath $bucketPath -PathType Container) {
-        Write-Log "Scoop bucket '$Name' is already available" "INFO"
+        Write-Log "Scoop bucket exists: $Name" "INFO"
         return $true
     }
 
@@ -91,20 +101,20 @@ function Ensure-ScoopBucket {
             $_ -match "^\s*$escapedName(?:\s|$)" -or
             $_ -match "(?:^|[{;]\s*)Name\s*=\s*$escapedName(?:[;}\s]|$)"
         })) {
-        Write-Log "Scoop bucket '$Name' is already available" "INFO"
+        Write-Log "Scoop bucket exists: $Name" "INFO"
         return $true
     }
 
-    Write-Log "Adding Scoop bucket '$Name'..." "INFO"
+    Write-Log "Adding Scoop bucket: $Name" "INFO"
     $addResult = Invoke-NativeCommand -FilePath "scoop" -ArgumentList @(
         "bucket", "add", $Name, $Source
     )
     if ($addResult.ExitCode -ne 0) {
         if (Test-Path -LiteralPath $bucketPath -PathType Container) {
-            Write-Log "Scoop bucket '$Name' became available while it was being added" "INFO"
+            Write-Log "Scoop bucket exists: $Name" "INFO"
             return $true
         }
-        Write-Log "Could not add Scoop bucket '$Name' (exit $($addResult.ExitCode))" "ERROR"
+        Write-Log "Scoop bucket failed: $Name - exit $($addResult.ExitCode)" "ERROR"
         return $false
     }
     return $true
@@ -119,17 +129,17 @@ function Install-ScoopNerdFont {
         -Path "HKCU:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Fonts" `
         -Name $registryName -ErrorAction SilentlyContinue
     if ((Test-Path -LiteralPath $fontFile) -and -not [string]::IsNullOrWhiteSpace($registeredPath)) {
-        Write-Log "$($Font.name) is already installed; skipping Scoop migration to avoid overwriting an in-use font" "INFO"
+        Write-Log "Font exists: $($Font.name)" "INFO"
         return $true
     }
 
-    Write-Log "Installing $($Font.name) ($($Font.package)) via Scoop..." "INFO"
+    Write-Log "Installing font: $($Font.name)" "INFO"
     $result = Invoke-NativeCommand -FilePath "scoop" -ArgumentList @("install", $Font.package)
     if ($result.ExitCode -ne 0) {
-        Write-Log "Scoop failed to install $($Font.package) (exit $($result.ExitCode))" "ERROR"
+        Write-Log "Font failed: $($Font.name) - exit $($result.ExitCode)" "ERROR"
         return $false
     }
-    Write-Log "Installed $($Font.name)" "SUCCESS"
+    Write-Log "Font installed: $($Font.name)" "SUCCESS"
     return $true
 }
 
@@ -137,13 +147,13 @@ function Invoke-NerdFontSetup {
     $catalog = Get-FontCatalog
     $fonts = @($catalog.fonts)
     if ($fonts.Count -eq 0) {
-        Write-Log "No fonts are defined in data/fonts.json" "ERROR"
+        Write-Log "Font catalog empty" "ERROR"
         return $false
     }
 
     $terminalFonts = @($fonts | Where-Object { $_.role -eq "terminal" })
     if ($terminalFonts.Count -ne 1) {
-        Write-Log "Font catalog must contain exactly one font with role 'terminal'" "ERROR"
+        Write-Log "Terminal font invalid" "ERROR"
         return $false
     }
 
@@ -160,7 +170,6 @@ function Invoke-NerdFontSetup {
             $fontsChanged = $true
             if ($font.role -eq "terminal") {
                 Set-StateValue -Key "selectedNerdFontMonoFace" -Value $font.monoFace
-                Set-StateValue -Key "selectedNerdFontPropoFace" -Value ""
             }
         } else {
             $allSucceeded = $false

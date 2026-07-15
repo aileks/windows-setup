@@ -1,4 +1,4 @@
-$script:WslDistro = "Ubuntu"
+$script:WslDistro = "Ubuntu-26.04"
 $script:NpipeRelayVersion = "1.11.4"
 $script:NpipeRelaySha256 = "cea82cf5c9c22a28bef8075750acb7958f766393baebff4597cf21442f71c4b3"
 
@@ -7,23 +7,24 @@ function Test-WslPlatformEnabled {
         $result = Invoke-NativeCommand -FilePath "wsl.exe" -ArgumentList @("--list", "--quiet")
         return $result.ExitCode -eq 0
     } catch {
-        Write-Log "Unable to run WSL: $($_.Exception.Message)" "ERROR"
+        Write-Log "WSL failed: $($_.Exception.Message)" "ERROR"
         return $false
     }
 }
 
 function Enable-WslPlatformAndReboot {
     Register-ResumeAfterReboot -ScriptPath $script:SetupScript
-    Write-Log "Installing WSL and Ubuntu..." "INFO"
-    $result = Invoke-NativeCommand -FilePath "wsl.exe" -ArgumentList @("--install")
+    Write-Log "Installing WSL" "INFO"
+    $result = Invoke-NativeCommand -FilePath "wsl.exe" -ArgumentList @("--install", "--no-distribution")
     if ($result.ExitCode -ne 0) {
         Clear-ResumeAfterReboot
-        Write-Log "WSL enablement failed with exit code $($result.ExitCode)" "ERROR"
+        Write-Log "WSL enablement failed: exit $($result.ExitCode)" "ERROR"
         return $false
     }
 
     Set-StateValue "rebootRequired" $true
-    Write-Log "WSL enabled. Rebooting now." "SUCCESS"
+    Write-Log "WSL enabled" "SUCCESS"
+    Restore-SystemRestoreFrequency
     Restart-Computer
     return $true
 }
@@ -38,23 +39,52 @@ function Test-WslDistroInstalled {
     @(Get-WslDistroNames) -contains $script:WslDistro
 }
 
+function Resolve-WslDistro {
+    if (Test-WslDistroInstalled) {
+        Set-StateValue "selectedWslDistro" $script:WslDistro
+        return
+    }
+    if (@(Get-WslDistroNames) -notcontains "Ubuntu") { return }
+    try {
+        $registration = @(Get-ChildItem "HKCU:\Software\Microsoft\Windows\CurrentVersion\Lxss" -ErrorAction Stop |
+            ForEach-Object { Get-ItemProperty -LiteralPath $_.PSPath }) |
+            Where-Object { $_.DistributionName -eq "Ubuntu" -and [uint32]$_.DefaultUid -ne 0 } |
+            Select-Object -First 1
+        if ($null -eq $registration) { return }
+        $version = Invoke-NativeCommand -FilePath "wsl.exe" -ArgumentList @(
+            "--distribution", "Ubuntu", "--user", "root", "--exec", "sh", "-c",
+            '. /etc/os-release; printf %s "$VERSION_ID"'
+        ) -NoConsole
+        $versionText = (@($version.Output) -join "").Trim()
+        if ($version.ExitCode -eq 0 -and $versionText -eq "26.04") {
+            $script:WslDistro = "Ubuntu"
+            Set-StateValue "selectedWslDistro" $script:WslDistro
+            Write-Log "Ubuntu 26.04 found" "INFO"
+        }
+    } catch {
+        Write-Log "Ubuntu validation failed: $($_.Exception.Message)" "WARN"
+    }
+}
+
 function Install-WslDistro {
+    Resolve-WslDistro
     if (Test-WslDistroInstalled) { return $true }
 
-    Write-Log "Installing $script:WslDistro..." "INFO"
+    Write-Log "Installing Ubuntu 26.04" "INFO"
     $result = Invoke-NativeCommand -FilePath "wsl.exe" -ArgumentList @(
         "--install", "--distribution", $script:WslDistro, "--no-launch"
     )
     if ($result.ExitCode -ne 0) {
-        Write-Log "Store installation failed with exit code $($result.ExitCode); retrying direct download" "WARN"
+        Write-Log "Ubuntu Store install failed: exit $($result.ExitCode)" "WARN"
         $result = Invoke-NativeCommand -FilePath "wsl.exe" -ArgumentList @(
             "--install", "--distribution", $script:WslDistro, "--no-launch", "--web-download"
         )
         if ($result.ExitCode -ne 0) {
-            Write-Log "$script:WslDistro installation failed with exit code $($result.ExitCode)" "ERROR"
+            Write-Log "Ubuntu install failed: exit $($result.ExitCode)" "ERROR"
             return $false
         }
     }
+    Set-StateValue "selectedWslDistro" $script:WslDistro
     return $true
 }
 
@@ -70,7 +100,7 @@ function Get-WslDefaultUser {
             Where-Object { $_.DistributionName -eq $script:WslDistro } | `
             Select-Object -First 1
     } catch {
-        Write-Log "Could not inspect the $script:WslDistro registration: $($_.Exception.Message)" "WARN"
+        Write-Log "Ubuntu registration failed: $($_.Exception.Message)" "WARN"
         return ""
     }
     if ($null -eq $registration -or $null -eq $registration.DefaultUid) { return "" }
@@ -93,17 +123,16 @@ function Initialize-WslUser {
     $user = Get-WslDefaultUser
     if ($user) { return $user }
 
-    Write-Host "Ubuntu needs its Linux user." -ForegroundColor Yellow
-    Write-Host "Create the user and password. Setup will continue when Ubuntu exits." -ForegroundColor White
+    Write-Host "Create Ubuntu user, then exit" -ForegroundColor Yellow
     $result = Invoke-NativeCommand -FilePath "wsl.exe" -ArgumentList @("--distribution", $script:WslDistro)
     if ($result.ExitCode -ne 0) {
-        Write-Log "Ubuntu first-run setup exited with code $($result.ExitCode)" "ERROR"
+        Write-Log "Ubuntu first run failed: exit $($result.ExitCode)" "ERROR"
         return ""
     }
 
     $user = Get-WslDefaultUser
     if ([string]::IsNullOrWhiteSpace($user)) {
-        Write-Log "Ubuntu user initialization is incomplete. Launch Ubuntu, finish creating a non-root user, exit it, and rerun setup." "ERROR"
+        Write-Log "Ubuntu user incomplete" "ERROR"
         return ""
     }
     return $user
@@ -124,7 +153,7 @@ function Copy-WslConfigPayload {
 
     $uncHome = "\\wsl.localhost\$script:WslDistro\home\$LinuxUser"
     if (-not (Test-Path -LiteralPath $uncHome)) {
-        Write-Log "Ubuntu home is unavailable through $uncHome" "ERROR"
+        Write-Log "Ubuntu home unavailable: $uncHome" "ERROR"
         return $null
     }
 
@@ -132,14 +161,15 @@ function Copy-WslConfigPayload {
     $stagingRoot = "$managedRoot.stage-$([guid]::NewGuid())"
     $payloadFiles = @(
         @{ Source = "configs\wsl\bootstrap.sh"; Relative = "wsl\bootstrap.sh" }
-        @{ Source = "configs\wsl\zshrc"; Relative = "wsl\zshrc" }
-        @{ Source = "configs\wsl\zsh_plugins.txt"; Relative = "wsl\zsh_plugins.txt" }
+        @{ Source = "configs\wsl\zsh"; Relative = "zsh" }
         @{ Source = "configs\wsl\wsl.conf"; Relative = "wsl\wsl.conf" }
         @{ Source = "configs\wsl\bitwarden-ssh-agent.zsh"; Relative = "wsl\bitwarden-ssh-agent.zsh" }
         @{ Source = "configs\wsl\nvim"; Relative = "nvim" }
-        @{ Source = "configs\starship\starship.toml"; Relative = "starship\starship.toml" }
-        @{ Source = "configs\bat\config"; Relative = "bat\config" }
-        @{ Source = "configs\bat\ashen.tmTheme"; Relative = "bat\ashen.tmTheme" }
+        @{ Source = "configs\common\starship\starship.toml"; Relative = "starship\starship.toml" }
+        @{ Source = "configs\wsl\bat"; Relative = "bat" }
+        @{ Source = "configs\common\bat\themes"; Relative = "bat\themes" }
+        @{ Source = "configs\wsl\btop"; Relative = "btop" }
+        @{ Source = "configs\common\btop\themes"; Relative = "btop\themes" }
     )
 
     try {
@@ -158,7 +188,6 @@ function Copy-WslConfigPayload {
             } else {
                 Copy-Item -LiteralPath $source -Destination $destination -Force
             }
-            Write-Log "  Copied $($entry.Source) -> $destination" "INFO"
         }
 
         if (Test-Path -LiteralPath $managedRoot) {
@@ -166,10 +195,10 @@ function Copy-WslConfigPayload {
         }
         Move-Item -LiteralPath $stagingRoot -Destination $managedRoot
         $linuxRoot = "/home/$LinuxUser/.local/share/win-setup-configs"
-        Write-Log "Copied WSL config payload to $managedRoot" "SUCCESS"
+        Write-Log "WSL configs copied" "SUCCESS"
         return [PSCustomObject]@{ UncPath = $managedRoot; LinuxPath = $linuxRoot }
     } catch {
-        Write-Log "Could not copy WSL configs through ${uncHome}: $($_.Exception.Message)" "ERROR"
+        Write-Log "WSL config copy failed: $($_.Exception.Message)" "ERROR"
         return $null
     } finally {
         if (Test-Path -LiteralPath $stagingRoot) {
@@ -184,12 +213,12 @@ function Install-NpipeRelay {
     if (Test-Path -LiteralPath $executable) {
         $installedHash = (Get-FileHash -LiteralPath $executable -Algorithm SHA256).Hash.ToLowerInvariant()
         if ($installedHash -eq $script:NpipeRelaySha256) {
-            Write-Log "npiperelay $script:NpipeRelayVersion is already installed" "INFO"
+            Write-Log "npiperelay exists" "INFO"
             return $true
         }
         $backupPath = "$executable.bak-$(Get-Date -Format 'yyyyMMdd-HHmmss')"
         Copy-Item -LiteralPath $executable -Destination $backupPath
-        Write-Log "Backed up a different npiperelay build to $backupPath" "INFO"
+        Write-Log "npiperelay backed up" "INFO"
     }
 
     $tempDir = Join-Path $env:TEMP "win-setup-npiperelay-$([guid]::NewGuid())"
@@ -197,17 +226,17 @@ function Install-NpipeRelay {
     $url = "https://github.com/albertony/npiperelay/releases/download/v$script:NpipeRelayVersion/npiperelay_windows_amd64.exe"
     try {
         New-Item -Path $tempDir -ItemType Directory -Force | Out-Null
-        Write-Log "Downloading npiperelay $script:NpipeRelayVersion..." "INFO"
+        Write-Log "Downloading npiperelay" "INFO"
         Invoke-WebRequest -Uri $url -OutFile $downloadPath -UseBasicParsing
         $actualHash = (Get-FileHash -LiteralPath $downloadPath -Algorithm SHA256).Hash.ToLowerInvariant()
         if ($actualHash -ne $script:NpipeRelaySha256) { throw "npiperelay checksum mismatch" }
 
         New-Item -Path $installDir -ItemType Directory -Force | Out-Null
         Copy-Item -LiteralPath $downloadPath -Destination $executable -Force
-        Write-Log "Installed npiperelay" "SUCCESS"
+        Write-Log "npiperelay installed" "SUCCESS"
         return $true
     } catch {
-        Write-Log "npiperelay installation failed: $($_.Exception.Message)" "ERROR"
+        Write-Log "npiperelay failed: $($_.Exception.Message)" "ERROR"
         return $false
     } finally {
         if (Test-Path -LiteralPath $tempDir) {
@@ -220,13 +249,13 @@ function Invoke-WslBootstrap {
     param([AllowNull()][string]$RelayPath = $null)
 
     New-ConfigLink "$script:RootDir/configs/wsl/.wslconfig" "$env:USERPROFILE\.wslconfig"
-    Write-Log "Updating WSL..." "INFO"
+    Write-Log "Updating WSL" "INFO"
     $updateResult = Invoke-NativeCommand -FilePath "wsl.exe" -ArgumentList @("--update")
     if ($updateResult.ExitCode -ne 0) {
-        Write-Log "Store update failed with exit code $($updateResult.ExitCode); retrying direct download" "WARN"
+        Write-Log "WSL Store update failed: exit $($updateResult.ExitCode)" "WARN"
         $updateResult = Invoke-NativeCommand -FilePath "wsl.exe" -ArgumentList @("--update", "--web-download")
         if ($updateResult.ExitCode -ne 0) {
-            Write-Log "WSL update failed with exit code $($updateResult.ExitCode)" "ERROR"
+            Write-Log "WSL update failed: exit $($updateResult.ExitCode)" "ERROR"
             return $false
         }
     }
@@ -238,7 +267,7 @@ function Invoke-WslBootstrap {
     # first-run experience from repairing an otherwise healthy installation.
     $initialShutdown = Invoke-NativeCommand -FilePath "wsl.exe" -ArgumentList @("--shutdown")
     if ($initialShutdown.ExitCode -ne 0) {
-        Write-Log "WSL shutdown before Ubuntu provisioning exited with code $($initialShutdown.ExitCode)" "WARN"
+        Write-Log "WSL shutdown failed: exit $($initialShutdown.ExitCode)" "WARN"
     }
 
     try {
@@ -261,14 +290,14 @@ function Invoke-WslBootstrap {
         if (-not [string]::IsNullOrWhiteSpace($RelayPath)) {
             $wslRelayPath = ConvertTo-WslPath $RelayPath
             if ([string]::IsNullOrWhiteSpace($wslRelayPath)) {
-                Write-Log "Could not translate the npiperelay path for WSL" "ERROR"
+                Write-Log "npiperelay path failed" "ERROR"
                 return $false
             }
         } else {
-            Write-Log "Bitwarden SSH relay is unavailable; Ubuntu will be provisioned without the relay" "WARN"
+            Write-Log "Bitwarden relay unavailable" "WARN"
         }
 
-        Write-Log "Provisioning $script:WslDistro for $linuxUser from copied Linux configs..." "INFO"
+        Write-Log "Configuring Ubuntu" "INFO"
         $bootstrapPath = "$configRoot/wsl/bootstrap.sh"
         $bootstrapArguments = @(
             "--distribution", $script:WslDistro, "--user", "root", "--exec",
@@ -278,55 +307,25 @@ function Invoke-WslBootstrap {
         if ($bootstrapResult.ExitCode -ne 0) {
             $bootstrapText = @($bootstrapResult.Output) -join "`n"
             if ($bootstrapText -match '(?im)Release file(?: for)? .* is not valid yet') {
-                Write-Log "Ubuntu package metadata reports clock skew; terminating and relaunching $script:WslDistro before one retry" "WARN"
+                Write-Log "Ubuntu clock skew detected" "WARN"
                 $terminateResult = Invoke-NativeCommand -FilePath "wsl.exe" -ArgumentList @("--terminate", $script:WslDistro)
                 if ($terminateResult.ExitCode -ne 0) {
-                    Write-Log "Could not terminate $script:WslDistro for clock resynchronization (exit $($terminateResult.ExitCode))" "WARN"
+                    Write-Log "Ubuntu restart failed: exit $($terminateResult.ExitCode)" "WARN"
                 }
                 $bootstrapResult = Invoke-NativeCommand -FilePath "wsl.exe" -ArgumentList $bootstrapArguments
             }
         }
         if ($bootstrapResult.ExitCode -ne 0) {
-            Write-Log "Ubuntu bootstrap failed with exit code $($bootstrapResult.ExitCode)" "ERROR"
+            Write-Log "Ubuntu setup failed: exit $($bootstrapResult.ExitCode)" "ERROR"
             return $false
         }
 
-        $nameResult = Invoke-NativeCommand -FilePath "wsl.exe" -ArgumentList @(
-            "--distribution", $script:WslDistro, "--exec", "git", "config", "--global", "user.name"
-        )
-        $emailResult = Invoke-NativeCommand -FilePath "wsl.exe" -ArgumentList @(
-            "--distribution", $script:WslDistro, "--exec", "git", "config", "--global", "user.email"
-        )
-        $existingName = if ($nameResult.ExitCode -eq 0) { $nameResult.Output | Select-Object -First 1 } else { "" }
-        $existingEmail = if ($emailResult.ExitCode -eq 0) { $emailResult.Output | Select-Object -First 1 } else { "" }
-        if ([string]::IsNullOrWhiteSpace($existingName) -or [string]::IsNullOrWhiteSpace($existingEmail)) {
-            $name = Ask-Input "Git user name" $existingName
-            $email = Ask-Input "Git user email" $existingEmail
-            if (-not [string]::IsNullOrWhiteSpace($name)) {
-                $nameSetResult = Invoke-NativeCommand -FilePath "wsl.exe" -ArgumentList @(
-                    "--distribution", $script:WslDistro, "--exec", "git", "config", "--global", "user.name", $name
-                )
-                if ($nameSetResult.ExitCode -ne 0) {
-                    Write-Log "Failed to set Ubuntu Git user name (exit $($nameSetResult.ExitCode))" "WARN"
-                }
-            }
-            if (-not [string]::IsNullOrWhiteSpace($email)) {
-                $emailSetResult = Invoke-NativeCommand -FilePath "wsl.exe" -ArgumentList @(
-                    "--distribution", $script:WslDistro, "--exec", "git", "config", "--global", "user.email", $email
-                )
-                if ($emailSetResult.ExitCode -ne 0) {
-                    Write-Log "Failed to set Ubuntu Git user email (exit $($emailSetResult.ExitCode))" "WARN"
-                }
-            }
-        }
-
-        Write-Log "Ubuntu configs are copied through $($configPayload.UncPath) and linked from Linux storage" "INFO"
-        Write-Log "Ubuntu daily environment configured" "SUCCESS"
+        Write-Log "Ubuntu configured" "SUCCESS"
         return $true
     } finally {
         $shutdownResult = Invoke-NativeCommand -FilePath "wsl.exe" -ArgumentList @("--shutdown")
         if ($shutdownResult.ExitCode -ne 0) {
-            Write-Log "Final WSL shutdown exited with code $($shutdownResult.ExitCode)" "WARN"
+            Write-Log "WSL shutdown failed: exit $($shutdownResult.ExitCode)" "WARN"
         }
     }
 }
@@ -337,10 +336,10 @@ function Disable-WindowsOpenSshAgent {
     try {
         if ($service.Status -ne "Stopped") { Stop-Service -Name "ssh-agent" -Force }
         Set-Service -Name "ssh-agent" -StartupType Disabled
-        Write-Log "Disabled Windows OpenSSH Authentication Agent for Bitwarden" "SUCCESS"
+        Write-Log "OpenSSH agent disabled" "SUCCESS"
         return $true
     } catch {
-        Write-Log "Failed to disable Windows OpenSSH Authentication Agent: $($_.Exception.Message)" "ERROR"
+        Write-Log "OpenSSH agent failed: $($_.Exception.Message)" "ERROR"
         return $false
     }
 }
@@ -348,7 +347,7 @@ function Disable-WindowsOpenSshAgent {
 function Install-VsCodeWslExtension {
     Refresh-EnvironmentPath
     if (-not (Get-Command code -ErrorAction SilentlyContinue)) {
-        Write-Log "VS Code CLI unavailable; WSL extension was not installed" "WARN"
+        Write-Log "VS Code CLI unavailable" "WARN"
         return $false
     }
     $result = Invoke-NativeCommand -FilePath "code" -ArgumentList @(

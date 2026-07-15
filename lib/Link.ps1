@@ -12,18 +12,18 @@ function New-ConfigLink {
     $item = Get-Item -LiteralPath $Dest -Force -ErrorAction SilentlyContinue
     if ($null -ne $item) {
         if ($item.LinkType -eq 'SymbolicLink' -and $item.Target -eq $sourceFull) {
-            Write-Log "  Already linked: $Dest" "INFO"
+            Write-Log "Link exists: $Dest" "INFO"
             return
         }
         if ($item.LinkType -ne 'SymbolicLink') {
             $backup = "$Dest.bak-$(Get-Date -Format 'yyyyMMdd-HHmmss')"
             Move-Item -LiteralPath $Dest -Destination $backup -Force
-            Write-Log "  Backed up existing $Dest -> $backup" "INFO"
+            Write-Log "Backup created: $Dest" "INFO"
         } else {
             Remove-Item -LiteralPath $Dest -Force
         }
     }
 
     New-Item -ItemType SymbolicLink -Path $Dest -Target $sourceFull -Force | Out-Null
-    Write-Log "  Linked $Dest -> $sourceFull" "INFO"
+    Write-Log "Linked: $Dest" "INFO"
 }

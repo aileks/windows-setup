@@ -1,0 +1,44 @@
+{
+  "$schema": "https://aka.ms/terminal-profiles-schema",
+  "alwaysShowTabs": false,
+  "showTabsInTitlebar": false,
+  "showTabsFullscreen": false,
+  "schemes": [
+    {
+      "name": "Cinder Grove",
+      "background": "#131210",
+      "foreground": "#BBB3A9",
+      "cursorColor": "#DDD5CA",
+      "selectionBackground": "#23201C",
+      "black": "#131210",
+      "red": "#B34A45",
+      "green": "#879B5C",
+      "yellow": "#D9A441",
+      "blue": "#6785A1",
+      "purple": "#9A788F",
+      "cyan": "#58918C",
+      "white": "#ACA49B",
+      "brightBlack": "#58534C",
+      "brightRed": "#B34A45",
+      "brightGreen": "#879B5C",
+      "brightYellow": "#D9A441",
+      "brightBlue": "#6785A1",
+      "brightPurple": "#9A788F",
+      "brightCyan": "#58918C",
+      "brightWhite": "#DDD5CA"
+    }
+  ],
+  "profiles": {
+    "defaults": {
+      "colorScheme": "Cinder Grove",
+      "useAcrylic": true,
+      "opacity": 85,
+      "font": {
+        "face": "AdwaitaMono Nerd Font Mono",
+        "size": 13
+      },
+      "padding": "12",
+      "cursorShape": "filledBox"
+    }
+  }
+}

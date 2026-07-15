@@ -3,6 +3,8 @@ $script:RegistryBackedUpPaths = @{}
 function Get-SetupRegistryBackupTargets {
     @(
         "HKLM:\SYSTEM\CurrentControlSet\Control\FileSystem"
+        "HKLM:\SYSTEM\CurrentControlSet\Control"
+        "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager"
         "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\AppModelUnlock"
         "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\Advanced"
         "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Search"
@@ -12,6 +14,10 @@ function Get-SetupRegistryBackupTargets {
         "HKLM:\SOFTWARE\Policies\Microsoft\Windows\Windows Search"
         "HKCU:\Software\Classes\CLSID\{86ca1aa0-34aa-4e8b-a509-50c905bae2a2}\InprocServer32"
         "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\StuckRects3"
+        "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\Advanced\TaskbarDeveloperSettings"
+        "HKCU:\Software\Classes\Local Settings\Software\Microsoft\Windows\Shell\Bags"
+        "HKCU:\Software\Classes\Local Settings\Software\Microsoft\Windows\Shell\BagMRU"
+        "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\FolderTypes"
         "HKLM:\SOFTWARE\Policies\Microsoft\Windows\DataCollection"
         "HKLM:\SOFTWARE\Policies\Microsoft\Windows\AdvertisingInfo"
         "HKLM:\SOFTWARE\Policies\Microsoft\Windows\AppCompat"
@@ -30,6 +36,15 @@ function Get-SetupRegistryBackupTargets {
         "HKCU:\SOFTWARE\Microsoft\Siuf\Rules"
         "HKCU:\SOFTWARE\Microsoft\Speech_OneCore\Settings\OnlineSpeechPrivacy"
         "HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsAI"
+        "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\Explorer"
+        "HKLM:\SOFTWARE\Policies\WindowsNotepad"
+        "HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate"
+        "HKLM:\SOFTWARE\Policies\Microsoft\Windows\OneDrive"
+        "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\DataCollection"
+        "HKCU:\Software\Microsoft\Input\TIPC"
+        "HKCU:\Software\Microsoft\InputPersonalization"
+        "HKCU:\Software\Microsoft\InputPersonalization\TrainedDataStore"
+        "HKCU:\Software\Microsoft\Personalization\Settings"
         "HKCU:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Fonts"
         "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System"
     )
@@ -95,7 +110,7 @@ function Export-RegistryKey {
                 "export", $nativePath, $destination, "/y"
             ) -NoConsole
             if ($nativeResult.ExitCode -ne 0) {
-                Write-Log "Registry export failed for $nativePath with exit code $($nativeResult.ExitCode)" "ERROR"
+                Write-Log "Registry export failed: $nativePath - exit $($nativeResult.ExitCode)" "ERROR"
                 return $false
             }
         } else {
@@ -104,7 +119,7 @@ function Export-RegistryKey {
         }
         return $true
     } catch {
-        Write-Log "Registry export failed for ${Path}: $($_.Exception.Message)" "ERROR"
+        Write-Log "Registry export failed: $Path - $($_.Exception.Message)" "ERROR"
         return $false
     }
 }
@@ -120,7 +135,7 @@ function New-RegistryBackup {
     $script:RegistryBackedUpPaths = @{}
     $succeeded = $true
     $exported = 0
-    Write-Log "Backing up registry settings..." "INFO"
+    Write-Log "Backing up registry" "INFO"
     foreach ($path in @($Paths | Select-Object -Unique)) {
         if (Export-RegistryKey -Path $path -BackupDirectory $backupDirectory) {
             $exported++
@@ -131,7 +146,7 @@ function New-RegistryBackup {
     }
 
     if ($succeeded) {
-        Write-Log "Exported $exported registry subtrees to $backupDirectory" "SUCCESS"
+        Write-Log "Registry backed up: $exported keys" "SUCCESS"
     }
     [PSCustomObject]@{ Success = $succeeded; Path = $backupDirectory; Count = $exported }
 }
@@ -184,19 +199,15 @@ function Set-RegistrySafe {
         try {
             $existing = $key.GetValue($propertyName, $null, [Microsoft.Win32.RegistryValueOptions]::DoNotExpandEnvironmentNames)
             $existingKind = if ($null -ne $existing) { $key.GetValueKind($propertyName) } else { $null }
-            $valueDisplay = if ($Value -is [string]) { '"{0}"' -f $Value } else { [string]$Value }
             if ($null -eq $existing -or $existing -ne $Value -or $existingKind -ne $kind) {
                 $key.SetValue($propertyName, $Value, $kind)
-                Write-Log "  Set registry: ${Path}\${Name} = $valueDisplay ($Type)" "INFO"
-            } else {
-                Write-Log "  Registry already correct: ${Path}\${Name} = $valueDisplay ($Type)" "INFO"
             }
             $success = $true
         } finally {
             if ($key) { $key.Dispose() }
         }
     } catch {
-        Write-Log "  Failed to set registry: ${Path}\${Name} - $($_.Exception.Message)" "WARN"
+        Write-Log "Registry failed: ${Path}\${Name} - $($_.Exception.Message)" "WARN"
     }
 
     if ($PassThru) { return $success }
@@ -223,9 +234,9 @@ function Set-RegistryBatch {
         }
     }
     if ($failed -gt 0) {
-        Write-Log "Applied $count registry values ($failed failed)" "WARN"
+        Write-Log "Registry configured: $count set, $failed failed" "WARN"
         return $false
     }
-    Write-Log "Applied $count registry values" "SUCCESS"
+    Write-Log "Registry configured: $count values" "SUCCESS"
     return $true
 }

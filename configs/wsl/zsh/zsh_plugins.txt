@@ -4,4 +4,3 @@ ohmyzsh/ohmyzsh path:plugins/ubuntu
 ohmyzsh/ohmyzsh path:plugins/git
 zsh-users/zsh-autosuggestions
 zsh-users/zsh-syntax-highlighting
-ficd0/ashen path:zsh
