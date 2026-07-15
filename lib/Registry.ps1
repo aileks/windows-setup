@@ -1,5 +1,24 @@
 $script:RegistryBackedUpPaths = @{}
 
+function Get-RegistryValueState {
+    param(
+        [Parameter(Mandatory)][string]$Path,
+        [Parameter(Mandatory)][string]$Name
+    )
+
+    if (-not (Test-Path -LiteralPath $Path)) {
+        return [PSCustomObject]@{ Exists = $false; Value = $null }
+    }
+
+    $item = Get-ItemProperty -LiteralPath $Path -ErrorAction Stop
+    $property = $item.PSObject.Properties[$Name]
+    if ($null -eq $property) {
+        return [PSCustomObject]@{ Exists = $false; Value = $null }
+    }
+
+    [PSCustomObject]@{ Exists = $true; Value = $property.Value }
+}
+
 function Get-SetupRegistryBackupTargets {
     @(
         "HKLM:\SYSTEM\CurrentControlSet\Control\FileSystem"

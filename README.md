@@ -11,8 +11,8 @@ irm https://aileks.dev/win | iex
 Or manually:
 
 ```powershell
-git clone https://codeberg.org/aileks/win-setup.git %USERPROFILE%/.dotfiles
-cd %USERPROFILE%/.dotfiles
+git clone https://codeberg.org/aileks/windots.git "$env:USERPROFILE\.dotfiles"
+Set-Location "$env:USERPROFILE\.dotfiles"
 
 Set-ExecutionPolicy Bypass -Scope Process
 .\setup.ps1

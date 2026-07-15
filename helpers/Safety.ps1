@@ -39,10 +39,10 @@ function Enable-SetupSystemRestore {
     $name = "SystemRestorePointCreationFrequency"
     try {
         if ($null -eq (Get-StateValue "systemRestoreFrequencyOriginal")) {
-            $value = Get-ItemPropertyValue -Path $path -Name $name -ErrorAction SilentlyContinue
+            $valueState = Get-RegistryValueState -Path $path -Name $name
             Set-StateValue "systemRestoreFrequencyOriginal" ([PSCustomObject]@{
-                existed = $null -ne $value
-                value   = $value
+                existed = $valueState.Exists
+                value   = $valueState.Value
             })
         }
         if (-not (Test-Path $path)) { New-Item -Path $path -Force | Out-Null }
@@ -63,7 +63,7 @@ function Restore-SystemRestoreFrequency {
     try {
         if ($original.existed -eq $true) {
             New-ItemProperty -Path $path -Name $name -Value ([int]$original.value) -PropertyType DWord -Force | Out-Null
-        } else {
+        } elseif ((Get-RegistryValueState -Path $path -Name $name).Exists) {
             Remove-ItemProperty -Path $path -Name $name -ErrorAction SilentlyContinue
         }
         Remove-StateValue "systemRestoreFrequencyOriginal"
@@ -81,8 +81,8 @@ function New-SetupRestorePoint {
         Write-Log "Restore point exists: $Description" "INFO"
         return $true
     }
-    if (-not (Enable-SetupSystemRestore)) { return $false }
     try {
+        if (-not (Enable-SetupSystemRestore)) { return $false }
         Checkpoint-Computer -Description $Description -RestorePointType "MODIFY_SETTINGS" -ErrorAction Stop
         Set-SafetyMilestone $Milestone @{ description = $Description }
         Write-Log "Restore point created: $Description" "SUCCESS"
@@ -90,6 +90,8 @@ function New-SetupRestorePoint {
     } catch {
         Write-Log "Restore point failed: $Description - $($_.Exception.Message)" "ERROR"
         return $false
+    } finally {
+        Restore-SystemRestoreFrequency
     }
 }
 
@@ -142,7 +144,7 @@ function Initialize-PreTweaksSafety {
     $registryBackup = New-RegistryBackup -Root $BackupRoot -Paths $registryPaths
     if (-not $registryBackup.Success) { return $false }
     Set-StateValue "registryBackupPath" $registryBackup.Path
-    if (-not (New-SetupRestorePoint -Milestone "beforeTweaks" -Description "win-setup before tweaks")) {
+    if (-not (New-SetupRestorePoint -Milestone "beforeTweaks" -Description "Windows setup script before tweaks")) {
         return $false
     }
     $milestones = Get-SafetyMilestones

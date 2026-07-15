@@ -8,8 +8,8 @@ home_dir="$(getent passwd "$linux_user" | cut -d: -f6)"
 
 # shellcheck source=/dev/null
 source /etc/os-release
-[[ ${ID:-} == ubuntu && ${VERSION_ID:-} == 26.04 ]] || {
-  echo "Ubuntu 26.04 required" >&2
+[[ ${ID:-} == ubuntu ]] || {
+  echo "Ubuntu required" >&2
   exit 1
 }
 [[ -d $config_root ]] || {
@@ -30,7 +30,7 @@ apt-get install -y \
   shfmt socat starship trash-cli unzip wget xz-utils zoxide zsh zsh-antidote
 
 install -d -m 0755 -o "$linux_user" -g "$linux_user" \
-  "$home_dir/.config" "$home_dir/.config/win-setup" "$home_dir/.local/bin" "$home_dir/Projects"
+  "$home_dir/.config" "$home_dir/.config/windows-setup-script" "$home_dir/.local/bin" "$home_dir/Projects"
 
 backup_and_link() {
   local source="$1" destination="$2"
@@ -58,10 +58,10 @@ if [[ -n $relay_path ]]; then
     exit 1
   }
   backup_and_link "$config_root/wsl/bitwarden-ssh-agent.zsh" \
-    "$home_dir/.config/win-setup/bitwarden-ssh-agent.zsh"
+    "$home_dir/.config/windows-setup-script/bitwarden-ssh-agent.zsh"
   ln -sfn "$relay_path" "$home_dir/.local/bin/npiperelay.exe"
 else
-  relay_config="$home_dir/.config/win-setup/bitwarden-ssh-agent.zsh"
+  relay_config="$home_dir/.config/windows-setup-script/bitwarden-ssh-agent.zsh"
   if [[ -L $relay_config && $(readlink "$relay_config") == "$config_root/wsl/bitwarden-ssh-agent.zsh" ]]; then
     rm -f "$relay_config"
   fi

@@ -9,7 +9,7 @@ function Set-ExplorerFolderDefaults {
         New-ItemProperty -Path $allFolders -Name "FolderType" -Value "NotSpecified" `
             -PropertyType String -Force | Out-Null
 
-        $tempFile = Join-Path $env:TEMP "win-setup-folder-types-$([guid]::NewGuid()).reg"
+        $tempFile = Join-Path $env:TEMP "windows-setup-script-folder-types-$([guid]::NewGuid()).reg"
         $importFile = "$tempFile.import.reg"
         try {
             $export = Invoke-NativeCommand -FilePath "reg.exe" -ArgumentList @(

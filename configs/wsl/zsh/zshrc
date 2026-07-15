@@ -6,8 +6,8 @@ export EDITOR="nvim"
 export VISUAL="$EDITOR"
 export SUDO_EDITOR="$VISUAL"
 export MANPAGER='bat --theme="cinder-grove" -plman'
-[[ -r "$HOME/.config/win-setup/bitwarden-ssh-agent.zsh" ]] && \
-  source "$HOME/.config/win-setup/bitwarden-ssh-agent.zsh"
+[[ -r "$HOME/.config/windows-setup-script/bitwarden-ssh-agent.zsh" ]] && \
+  source "$HOME/.config/windows-setup-script/bitwarden-ssh-agent.zsh"
 bindkey -e
 
 # Terminal line editing

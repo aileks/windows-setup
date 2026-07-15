@@ -46,7 +46,7 @@ function Invoke-WindowsTerminalSetup {
 
     $profileGuid = "{a1d66d88-5f1f-4b6d-a7df-9c768f5bf278}"
     $distro = Get-StateValue "selectedWslDistro"
-    if ([string]::IsNullOrWhiteSpace($distro)) { $distro = "Ubuntu-26.04" }
+    if ([string]::IsNullOrWhiteSpace($distro)) { $distro = "Ubuntu" }
     $profiles = @()
     if ($settings.profiles.PSObject.Properties.Name -contains "list") {
         $profiles = @($settings.profiles.list | Where-Object { $_.guid -ne $profileGuid })

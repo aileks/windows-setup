@@ -81,7 +81,7 @@ if vim.pack then
     return { src = plugin.src }
   end, plugins))
 else
-  local package_root = vim.fn.stdpath('data') .. '/site/pack/win-setup/start'
+  local package_root = vim.fn.stdpath('data') .. '/site/pack/windows-setup-script/start'
   vim.fn.mkdir(package_root, 'p')
   for _, plugin in ipairs(plugins) do
     local path = package_root .. '/' .. plugin.name

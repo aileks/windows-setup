@@ -6,7 +6,7 @@
     { "name": "Helium", "id": "ImputNet.Helium", "description": "primary browser" },
     { "name": "LocalSend", "id": "LocalSend.LocalSend", "description": "local device file sharing" },
     { "name": "Signal", "id": "OpenWhisperSystems.Signal", "description": "private messaging" },
-    { "name": "Raycast", "id": "Raycast.Raycast", "description": "application launcher" },
+    { "name": "Raycast", "id": "9PFXXSHC64H3", "source": "msstore", "description": "application launcher" },
     {
       "name": "Bitwarden",
       "id": "Bitwarden.Bitwarden",

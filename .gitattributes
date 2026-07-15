@@ -1,0 +1,4 @@
+README.md text eol=crlf
+*.sh text eol=lf
+*.zsh text eol=lf
+configs/wsl/** text eol=lf

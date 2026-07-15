@@ -4,6 +4,16 @@ function Refresh-EnvironmentPath {
     $env:Path = "$machinePath;$userPath"
 }
 
+function Get-WinGetAgreementArguments {
+    param([switch]$IncludePackage)
+
+    $arguments = @("--accept-source-agreements", "--disable-interactivity")
+    if ($IncludePackage) {
+        $arguments = @("--accept-package-agreements") + $arguments
+    }
+    return $arguments
+}
+
 function Get-SoftwareCatalog {
     $catalogPath = Join-Path $script:RootDir "data/software.json"
     if (-not (Test-Path $catalogPath)) {
@@ -85,7 +95,7 @@ function Test-WinGetPackageId {
         [string]$Source = ""
     )
 
-    $arguments = @("show", "--id", $PackageId, "--exact", "--accept-source-agreements", "--disable-interactivity")
+    $arguments = @("show", "--id", $PackageId, "--exact") + @(Get-WinGetAgreementArguments)
     if (-not [string]::IsNullOrWhiteSpace($Source)) { $arguments += @("--source", $Source) }
     $result = Invoke-NativeCommand -FilePath "winget" -ArgumentList $arguments -OutputPrefix "    " -NoConsole
     return $result.ExitCode -eq 0
@@ -97,7 +107,7 @@ function Test-WinGetPackageInstalled {
         [string]$Source = ""
     )
 
-    $arguments = @("list", "--id", $PackageId, "--exact", "--accept-source-agreements", "--disable-interactivity")
+    $arguments = @("list", "--id", $PackageId, "--exact") + @(Get-WinGetAgreementArguments)
     if (-not [string]::IsNullOrWhiteSpace($Source)) { $arguments += @("--source", $Source) }
     $result = Invoke-NativeCommand -FilePath "winget" -ArgumentList $arguments -OutputPrefix "    " -NoConsole
     return $result.ExitCode -eq 0
@@ -214,10 +224,9 @@ function Install-WinGetPackage {
         $sourceLabel = if ($candidate.Source) { $candidate.Source } else { "winget" }
         Write-Log "Installing package: $Name" "INFO"
         $arguments = @(
-            "install", "--id", $candidate.Id, "--exact",
-            "--accept-package-agreements", "--accept-source-agreements",
-            "--disable-interactivity"
+            "install", "--id", $candidate.Id, "--exact"
         )
+        $arguments += @(Get-WinGetAgreementArguments -IncludePackage)
         if (-not [string]::IsNullOrWhiteSpace($candidate.Source)) {
             $arguments += @("--source", $candidate.Source)
         }
@@ -292,7 +301,7 @@ function Install-Fastmail {
         return $result
     }
 
-    $tempDir = Join-Path $env:TEMP "win-setup-fastmail-$([guid]::NewGuid())"
+    $tempDir = Join-Path $env:TEMP "windows-setup-script-fastmail-$([guid]::NewGuid())"
     $installer = Join-Path $tempDir "Fastmail-Setup.exe"
     try {
         New-Item -Path $tempDir -ItemType Directory -Force | Out-Null

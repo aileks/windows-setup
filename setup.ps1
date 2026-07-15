@@ -29,33 +29,30 @@ Get-ChildItem "$script:RootDir/scripts/*.ps1" | Sort-Object Name | ForEach-Objec
 if (-not (Test-SupportedEnvironment)) { exit 1 }
 
 Write-Host ""
-Write-Host "Installs software, Ubuntu, configs, and system tweaks." -ForegroundColor Yellow
+Write-Host "Installs software, enables WSL, symlinks configs, and applies system tweaks." -ForegroundColor Yellow
 Write-Host "Backups and restore points enabled." -ForegroundColor Yellow
-Write-Host "Deletes OneDrive data and selected inbox apps." -ForegroundColor Red
+Write-Host "OneDrive is removed" -ForegroundColor Red
 Write-Host ""
 if (-not (Ask-YesNo "Continue with setup?" $false)) {
     Write-Host "Setup cancelled" -ForegroundColor Yellow
     exit 0
 }
 
-$stateDir = "$env:USERPROFILE\.win-setup"
+$stateDir = "$env:USERPROFILE\.dotfiles-state"
 $stateFile = "$stateDir\state.json"
 $logPath = "$stateDir\setup.log"
 Load-State $stateFile | Out-Null
 Initialize-Log $logPath
+Restore-SystemRestoreFrequency
 
 $initialRestoreSucceeded = New-SetupRestorePoint -Milestone "initial" `
-    -Description "win-setup initial state"
+    -Description "Windows setup script initial state"
 
 if (-not (Test-WslPlatformEnabled)) {
     if (Ask-YesNo "WSL not enabled. Enable it and reboot?" $true) {
-        if (-not (Enable-WslPlatformAndReboot)) {
-            Restore-SystemRestoreFrequency
-            exit 1
-        }
+        if (-not (Enable-WslPlatformAndReboot)) { exit 1 }
     }
     Write-Log "WSL required" "WARN"
-    Restore-SystemRestoreFrequency
     exit 0
 }
 
@@ -88,12 +85,11 @@ $actions = @(
     [PSCustomObject]@{ Id = "windows-cli"; Name = "PowerShell CLI tools"; Run = { Invoke-CliToolsInstall } },
     [PSCustomObject]@{ Id = "nerd-fonts"; Name = "Nerd fonts"; Run = { Invoke-NerdFontSetup } },
     [PSCustomObject]@{ Id = "npiperelay"; Name = "Bitwarden SSH relay"; Prerequisite = { Test-BitwardenInstalled }; PrerequisiteMessage = "Bitwarden is not installed"; Run = { Install-NpipeRelay } },
-    [PSCustomObject]@{ Id = "ubuntu-environment"; Name = "Ubuntu 26.04 environment"; Run = {
+    [PSCustomObject]@{ Id = "ubuntu-environment"; Name = "Ubuntu environment"; Run = {
         $relayPath = Join-Path $env:LOCALAPPDATA "Programs\npiperelay\npiperelay.exe"
         if (-not ((Test-BitwardenInstalled) -and (Test-Path -LiteralPath $relayPath))) { $relayPath = "" }
         Invoke-WslBootstrap -RelayPath $relayPath
     } },
-    [PSCustomObject]@{ Id = "vscode-wsl"; Name = "VS Code WSL extension"; Run = { Install-VsCodeWslExtension } },
     [PSCustomObject]@{ Id = "pre-tweaks-safety"; Name = "Pre-tweaks backup and restore point"; Run = {
         Initialize-PreTweaksSafety -BackupRoot "$stateDir\registry-backups" `
             -ProfileFingerprint $profileFingerprint
@@ -179,14 +175,13 @@ if (-not $initialRestoreSucceeded) {
 }
 $failed = @($results | Where-Object { $_.Status -eq "Failed" })
 if ($failed.Count -eq 0) {
-    if (-not (New-SetupRestorePoint -Milestone "complete" -Description "win-setup complete")) {
+    if (-not (New-SetupRestorePoint -Milestone "complete" -Description "Windows setup script complete")) {
         $restoreResult = New-SetupResult -Id "final-restore-point" -Name "Final restore point" `
             -Status "Failed" -ExitCode 1 -Message "creation failed"
         $results += $restoreResult
         $failed = @($results | Where-Object { $_.Status -eq "Failed" })
     }
 }
-Restore-SystemRestoreFrequency
 Show-SetupResults -Results $results -LogPath $logPath
 
 if ($failed.Count -gt 0) {

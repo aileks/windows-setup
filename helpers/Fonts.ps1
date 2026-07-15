@@ -14,12 +14,12 @@ function Get-SelectedNerdFontMonoFace {
 }
 
 function Publish-FontChange {
-    if (-not ("WinSetupFontChange" -as [type])) {
+    if (-not ("WindowsSetupScriptFontChange" -as [type])) {
         Add-Type @'
 using System;
 using System.Runtime.InteropServices;
 
-public static class WinSetupFontChange {
+public static class WindowsSetupScriptFontChange {
     [DllImport("user32.dll", SetLastError = true)]
     public static extern IntPtr SendMessageTimeout(
         IntPtr window, uint message, UIntPtr wParam, IntPtr lParam,
@@ -29,7 +29,7 @@ public static class WinSetupFontChange {
     }
 
     $result = [UIntPtr]::Zero
-    [void][WinSetupFontChange]::SendMessageTimeout(
+    [void][WindowsSetupScriptFontChange]::SendMessageTimeout(
         [IntPtr]0xffff, 0x001D, [UIntPtr]::Zero, [IntPtr]::Zero, 2, 5000, [ref]$result)
 }
 
@@ -38,7 +38,7 @@ function Ensure-Scoop {
     if (Get-Command "scoop" -ErrorAction SilentlyContinue) { return $true }
 
     Write-Log "Installing Scoop" "INFO"
-    $tempDir = Join-Path $env:TEMP "win-setup-scoop-$([guid]::NewGuid())"
+    $tempDir = Join-Path $env:TEMP "windows-setup-script-scoop-$([guid]::NewGuid())"
     $installerPath = Join-Path $tempDir "install.ps1"
     try {
         New-Item -Path $tempDir -ItemType Directory -Force | Out-Null
@@ -125,9 +125,9 @@ function Install-ScoopNerdFont {
 
     $fontFile = Join-Path "$env:LOCALAPPDATA\Microsoft\Windows\Fonts" $Font.installedFile
     $registryName = "$([IO.Path]::GetFileNameWithoutExtension($Font.installedFile)) (TrueType)"
-    $registeredPath = Get-ItemPropertyValue `
+    $registeredPath = (Get-RegistryValueState `
         -Path "HKCU:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Fonts" `
-        -Name $registryName -ErrorAction SilentlyContinue
+        -Name $registryName).Value
     if ((Test-Path -LiteralPath $fontFile) -and -not [string]::IsNullOrWhiteSpace($registeredPath)) {
         Write-Log "Font exists: $($Font.name)" "INFO"
         return $true

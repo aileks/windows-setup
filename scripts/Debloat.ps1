@@ -24,6 +24,20 @@ function Remove-InboxPackage {
     return $ok
 }
 
+function Remove-OneDrivePath {
+    param([Parameter(Mandatory)][string]$Path)
+
+    if (-not (Test-Path -LiteralPath $Path)) { return $true }
+    try {
+        Remove-Item -LiteralPath $Path -Recurse -Force -ErrorAction Stop
+        Write-Log "Deleted: $Path" "INFO"
+        return $true
+    } catch {
+        Write-Log "OneDrive path locked: $Path - $($_.Exception.Message)" "WARN"
+        return $false
+    }
+}
+
 function Remove-OneDriveCompletely {
     Write-Log "Removing OneDrive" "INFO"
     Stop-Process -Name OneDrive,FileCoAuth -Force -ErrorAction SilentlyContinue
@@ -45,14 +59,29 @@ function Remove-OneDriveCompletely {
         (Join-Path $env:ProgramFiles "Microsoft OneDrive"),
         $(if (${env:ProgramFiles(x86)}) { Join-Path ${env:ProgramFiles(x86)} "Microsoft OneDrive" })
     ) | Where-Object { -not [string]::IsNullOrWhiteSpace($_) } | Select-Object -Unique
-    foreach ($path in $paths) {
-        if (Test-Path -LiteralPath $path) {
-            Remove-Item -LiteralPath $path -Recurse -Force -ErrorAction Stop
-            Write-Log "Deleted: $path" "INFO"
+    $failedPaths = @($paths | Where-Object { -not (Remove-OneDrivePath -Path $_) })
+    if ($failedPaths.Count -gt 0) {
+        $explorer = @(Get-Process -Name explorer -ErrorAction SilentlyContinue)
+        if ($explorer.Count -gt 0) {
+            try {
+                $explorer | Stop-Process -Force -ErrorAction Stop
+                $explorer | Wait-Process -ErrorAction SilentlyContinue
+                Write-Log "Explorer stopped for OneDrive cleanup" "INFO"
+                $failedPaths = @($failedPaths | Where-Object { -not (Remove-OneDrivePath -Path $_) })
+            } finally {
+                if (-not (Get-Process -Name explorer -ErrorAction SilentlyContinue)) {
+                    Start-Process -FilePath "$env:SystemRoot\explorer.exe"
+                    Write-Log "Explorer restarted" "INFO"
+                }
+            }
         }
     }
     Remove-ItemProperty -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Run" `
         -Name "OneDrive" -ErrorAction SilentlyContinue
+    if ($failedPaths.Count -gt 0) {
+        Write-Log "OneDrive residue remains: $($failedPaths -join ', ')" "WARN"
+        return $false
+    }
     return $true
 }
 
