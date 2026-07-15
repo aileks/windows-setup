@@ -24,7 +24,7 @@ foreach ($file in @(
 }
 
 Get-ChildItem "$script:RootDir/helpers/*.ps1" | Sort-Object Name | ForEach-Object { . $_.FullName }
-Get-ChildItem "$script:RootDir/scripts/windows/*.ps1" | Sort-Object Name | ForEach-Object { . $_.FullName }
+Get-ChildItem "$script:RootDir/scripts/*.ps1" | Sort-Object Name | ForEach-Object { . $_.FullName }
 
 if (-not (Test-SupportedEnvironment)) { exit 1 }
 
