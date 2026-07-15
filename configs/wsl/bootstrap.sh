@@ -45,6 +45,7 @@ backup_and_link() {
 
 backup_and_link "$config_root/zsh/zshrc" "$home_dir/.zshrc"
 backup_and_link "$config_root/nvim" "$home_dir/.config/nvim"
+backup_and_link "$config_root/fastfetch" "$home_dir/.config/fastfetch"
 backup_and_link "$config_root/starship/starship.toml" "$home_dir/.config/starship.toml"
 backup_and_link "$config_root/bat" "$home_dir/.config/bat"
 
@@ -81,7 +82,8 @@ fi
 install -m 0644 "$config_root/wsl/wsl.conf" /etc/wsl.conf
 
 chown -h "$linux_user:$linux_user" \
-  "$home_dir/.zshrc" "$home_dir/.config/nvim" "$home_dir/.config/starship.toml" \
+  "$home_dir/.zshrc" "$home_dir/.config/nvim" "$home_dir/.config/fastfetch" \
+  "$home_dir/.config/starship.toml" \
   "$home_dir/.config/bat" "$home_dir/.local/bin"/* 2>/dev/null || true
 chsh -s /usr/bin/zsh "$linux_user"
 

@@ -1,6 +1,8 @@
 $env:EDITOR = "code --wait"
 $env:VISUAL = $env:EDITOR
 
+Set-Alias ff fastfetch
+
 if (Get-Command coreutils-manager -ErrorAction SilentlyContinue) {
     @("cat", "cp", "echo", "ls", "mv", "pwd", "rm", "rmdir", "sleep", "sort", "tee") |
         ForEach-Object { Remove-Item "Alias:$_" -Force -ErrorAction SilentlyContinue }
