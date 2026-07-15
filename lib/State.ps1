@@ -23,7 +23,7 @@ function Load-State {
         $script:State = @{}
     }
 
-    $script:State["version"] = 3
+    $script:State["version"] = 4
     if (-not $script:State.ContainsKey("completed")) { $script:State["completed"] = @() }
     if (-not $script:State.ContainsKey("results")) { $script:State["results"] = @{} }
     if (-not $script:State.ContainsKey("resumeAfterReboot")) { $script:State["resumeAfterReboot"] = $false }
@@ -87,11 +87,13 @@ function Set-StateResult {
     }
     $script:State["results"] = $results
 
+    $list = @($script:State["completed"])
     if (Test-SetupResultSuccessful $Result) {
-        $list = @($script:State["completed"])
         if ($list -notcontains $Result.Id) {
             $script:State["completed"] = @($list + $Result.Id)
         }
+    } else {
+        $script:State["completed"] = @($list | Where-Object { $_ -ne $Result.Id })
     }
     Save-State
 }
@@ -105,4 +107,12 @@ function Set-StateValue {
     param([string]$Key, $Value)
     $script:State[$Key] = $Value
     Save-State
+}
+
+function Remove-StateValue {
+    param([Parameter(Mandatory)][string]$Key)
+    if ($script:State.ContainsKey($Key)) {
+        $script:State.Remove($Key)
+        Save-State
+    }
 }

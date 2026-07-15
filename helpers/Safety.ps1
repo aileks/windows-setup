@@ -27,6 +27,13 @@ function Set-SafetyMilestone {
     Set-StateValue "safetyMilestones" $milestones
 }
 
+function Clear-ProfileSafetyMilestones {
+    $milestones = Get-SafetyMilestones
+    foreach ($name in @("beforeTweaks", "complete")) { $milestones.Remove($name) }
+    Remove-StateValue "registryBackupPath"
+    Set-StateValue "safetyMilestones" $milestones
+}
+
 function Enable-SetupSystemRestore {
     $path = "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\SystemRestore"
     $name = "SystemRestorePointCreationFrequency"
@@ -59,6 +66,7 @@ function Restore-SystemRestoreFrequency {
         } else {
             Remove-ItemProperty -Path $path -Name $name -ErrorAction SilentlyContinue
         }
+        Remove-StateValue "systemRestoreFrequencyOriginal"
     } catch {
         Write-Log "Restore frequency failed: $($_.Exception.Message)" "WARN"
     }
@@ -85,15 +93,53 @@ function New-SetupRestorePoint {
     }
 }
 
+function Test-RegistryBackupMilestone {
+    param(
+        [Parameter(Mandatory)]$Milestone,
+        [Parameter(Mandatory)][string]$ProfileFingerprint,
+        [Parameter(Mandatory)][string[]]$RegistryPaths
+    )
+
+    if ($Milestone.profileFingerprint -ne $ProfileFingerprint) { return $false }
+    $backupPath = [string]$Milestone.registryBackupPath
+    if ([string]::IsNullOrWhiteSpace($backupPath) -or -not (Test-Path -LiteralPath $backupPath -PathType Container)) {
+        return $false
+    }
+    $savedPaths = @($Milestone.registryPaths)
+    if (@($savedPaths | Where-Object { $_ -notin $RegistryPaths }).Count -gt 0 -or
+        @($RegistryPaths | Where-Object { $_ -notin $savedPaths }).Count -gt 0) {
+        return $false
+    }
+    foreach ($path in $RegistryPaths) {
+        $file = Get-RegistryBackupFilePath -BackupDirectory $backupPath -RegistryPath $path
+        $item = Get-Item -LiteralPath $file -ErrorAction SilentlyContinue
+        if ($null -eq $item -or $item.Length -eq 0) { return $false }
+    }
+    return $true
+}
+
 function Initialize-PreTweaksSafety {
-    param([Parameter(Mandatory)][string]$BackupRoot)
-    if (Test-SafetyMilestone "beforeTweaks") {
+    param(
+        [Parameter(Mandatory)][string]$BackupRoot,
+        [Parameter(Mandatory)][string]$ProfileFingerprint
+    )
+    $registryPaths = @(Get-SetupRegistryBackupTargets | Select-Object -Unique)
+    $milestones = Get-SafetyMilestones
+    $milestone = $milestones["beforeTweaks"]
+    if ($null -ne $milestone -and
+        (Test-RegistryBackupMilestone -Milestone $milestone -ProfileFingerprint $ProfileFingerprint `
+            -RegistryPaths $registryPaths)) {
         $script:RegistryBackedUpPaths = @{}
-        foreach ($path in @(Get-SetupRegistryBackupTargets)) { $script:RegistryBackedUpPaths[$path] = $true }
-        Write-Log "Registry backup exists" "INFO"
+        foreach ($path in $registryPaths) { $script:RegistryBackedUpPaths[$path] = $true }
+        Write-Log "Registry backup verified" "SUCCESS"
         return $true
     }
-    $registryBackup = New-RegistryBackup -Root $BackupRoot -Paths @(Get-SetupRegistryBackupTargets)
+    if ($null -ne $milestone) {
+        $milestones.Remove("beforeTweaks")
+        Set-StateValue "safetyMilestones" $milestones
+    }
+
+    $registryBackup = New-RegistryBackup -Root $BackupRoot -Paths $registryPaths
     if (-not $registryBackup.Success) { return $false }
     Set-StateValue "registryBackupPath" $registryBackup.Path
     if (-not (New-SetupRestorePoint -Milestone "beforeTweaks" -Description "win-setup before tweaks")) {
@@ -102,6 +148,8 @@ function Initialize-PreTweaksSafety {
     $milestones = Get-SafetyMilestones
     $milestone = $milestones["beforeTweaks"]
     $milestone | Add-Member -NotePropertyName registryBackupPath -NotePropertyValue $registryBackup.Path -Force
+    $milestone | Add-Member -NotePropertyName profileFingerprint -NotePropertyValue $ProfileFingerprint -Force
+    $milestone | Add-Member -NotePropertyName registryPaths -NotePropertyValue $registryPaths -Force
     $milestones["beforeTweaks"] = $milestone
     Set-StateValue "safetyMilestones" $milestones
     return $true

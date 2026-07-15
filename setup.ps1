@@ -31,6 +31,7 @@ if (-not (Test-SupportedEnvironment)) { exit 1 }
 Write-Host ""
 Write-Host "Installs software, Ubuntu, configs, and system tweaks." -ForegroundColor Yellow
 Write-Host "Backups and restore points enabled." -ForegroundColor Yellow
+Write-Host "Deletes OneDrive data and selected inbox apps." -ForegroundColor Red
 Write-Host ""
 if (-not (Ask-YesNo "Continue with setup?" $false)) {
     Write-Host "Setup cancelled" -ForegroundColor Yellow
@@ -43,10 +44,8 @@ $logPath = "$stateDir\setup.log"
 Load-State $stateFile | Out-Null
 Initialize-Log $logPath
 
-if (-not (New-SetupRestorePoint -Milestone "initial" -Description "win-setup initial state")) {
-    Restore-SystemRestoreFrequency
-    exit 1
-}
+$initialRestoreSucceeded = New-SetupRestorePoint -Milestone "initial" `
+    -Description "win-setup initial state"
 
 if (-not (Test-WslPlatformEnabled)) {
     if (Ask-YesNo "WSL not enabled. Enable it and reboot?" $true) {
@@ -79,6 +78,7 @@ try {
 }
 if ((Get-StateValue "profileFingerprint") -ne $profileFingerprint) {
     Clear-StateCompleted
+    Clear-ProfileSafetyMilestones
     Set-StateValue "profileFingerprint" $profileFingerprint
 }
 
@@ -94,28 +94,40 @@ $actions = @(
         Invoke-WslBootstrap -RelayPath $relayPath
     } },
     [PSCustomObject]@{ Id = "vscode-wsl"; Name = "VS Code WSL extension"; Run = { Install-VsCodeWslExtension } },
-    [PSCustomObject]@{ Id = "pre-tweaks-safety"; Name = "Pre-tweaks backup and restore point"; Run = { Initialize-PreTweaksSafety -BackupRoot "$stateDir\registry-backups" } },
-    [PSCustomObject]@{ Id = "developer-tweaks"; Name = "Developer settings"; Run = { Invoke-DeveloperTweaks } },
-    [PSCustomObject]@{ Id = "explorer-tweaks"; Name = "Explorer and taskbar tweaks"; Run = { Invoke-ExplorerTweaks } },
-    [PSCustomObject]@{ Id = "privacy-tweaks"; Name = "Privacy and telemetry policies"; Run = { Invoke-PrivacyTweaks } },
-    [PSCustomObject]@{ Id = "service-tweaks"; Name = "Windows service settings"; Run = { Invoke-ServiceTweaks } },
-    [PSCustomObject]@{ Id = "windows-debloat"; Name = "Windows inbox app removal"; Run = { Invoke-WindowsDebloat } },
+    [PSCustomObject]@{ Id = "pre-tweaks-safety"; Name = "Pre-tweaks backup and restore point"; Run = {
+        Initialize-PreTweaksSafety -BackupRoot "$stateDir\registry-backups" `
+            -ProfileFingerprint $profileFingerprint
+    } },
+    [PSCustomObject]@{ Id = "developer-tweaks"; Name = "Developer settings"; RequiresSafety = $true; Run = { Invoke-DeveloperTweaks } },
+    [PSCustomObject]@{ Id = "explorer-tweaks"; Name = "Explorer and taskbar tweaks"; RequiresSafety = $true; Run = { Invoke-ExplorerTweaks } },
+    [PSCustomObject]@{ Id = "privacy-tweaks"; Name = "Privacy and telemetry policies"; RequiresSafety = $true; Run = { Invoke-PrivacyTweaks } },
+    [PSCustomObject]@{ Id = "service-tweaks"; Name = "Windows service settings"; RequiresSafety = $true; Run = { Invoke-ServiceTweaks } },
+    [PSCustomObject]@{ Id = "windows-debloat"; Name = "Windows inbox app removal"; RequiresSafety = $true; Run = { Invoke-WindowsDebloat } },
     [PSCustomObject]@{ Id = "power-plan"; Name = "Ultimate Performance power plan"; Run = { Invoke-PowerPlanTweaks } },
-    [PSCustomObject]@{ Id = "bitwarden-ssh"; Name = "Windows SSH agent handoff"; Prerequisite = { Test-BitwardenInstalled }; PrerequisiteMessage = "Bitwarden is not installed; Windows ssh-agent was unchanged"; Run = { Disable-WindowsOpenSshAgent } },
-    [PSCustomObject]@{ Id = "komorebi"; Name = "Komorebi configuration"; Run = { Invoke-KomorebiSetup } },
+    [PSCustomObject]@{ Id = "bitwarden-ssh"; Name = "Windows SSH agent handoff"; RequiresSafety = $true; Prerequisite = { Test-BitwardenInstalled }; PrerequisiteMessage = "Bitwarden is not installed; Windows ssh-agent was unchanged"; Run = { Disable-WindowsOpenSshAgent } },
+    [PSCustomObject]@{ Id = "komorebi"; Name = "Komorebi configuration"; RequiresSafety = $true; Run = { Invoke-KomorebiSetup } },
     [PSCustomObject]@{ Id = "windows-terminal"; Name = "Windows Terminal"; Run = { Invoke-WindowsTerminalSetup } },
     [PSCustomObject]@{ Id = "powershell-profile"; Name = "PowerShell profile"; Run = { Invoke-PowerShellProfileSetup } }
 )
 
 $results = @($actions | ForEach-Object { New-SetupResult -Id $_.Id -Name $_.Name })
+$safetyReady = $false
+$explorerChanged = $false
 
 for ($i = 0; $i -lt $actions.Count; $i++) {
     $action = $actions[$i]
     $result = $results[$i]
-    if (Test-StateCompleted $action.Id) {
+    if ($action.Id -ne "pre-tweaks-safety" -and (Test-StateCompleted $action.Id)) {
         $result.Status = "Skipped"
         $result.Message = "exists"
         Write-Log "Exists: $($action.Name)" "INFO"
+        continue
+    }
+    if (($action.PSObject.Properties.Name -contains "RequiresSafety") -and
+        $action.RequiresSafety -eq $true -and -not $safetyReady) {
+        $result.Status = "Skipped"
+        $result.Message = "safety dependency"
+        Write-Log "Skipped: $($action.Name) - safety" "WARN"
         continue
     }
     if (($action.PSObject.Properties.Name -contains "Prerequisite") -and -not (& $action.Prerequisite)) {
@@ -135,6 +147,8 @@ for ($i = 0; $i -lt $actions.Count; $i++) {
         if ($action.Id -eq "windows-software") { $result.PackageResults = @($script:LastSoftwarePackageResults) }
         if ($success -eq $true) {
             $result.Status = "Success"
+            if ($action.Id -eq "pre-tweaks-safety") { $safetyReady = $true }
+            if ($action.Id -eq "explorer-tweaks") { $explorerChanged = $true }
             Write-Log "Done: $($action.Name)" "SUCCESS"
         } else {
             $result.Status = "Failed"
@@ -153,10 +167,16 @@ for ($i = 0; $i -lt $actions.Count; $i++) {
     Set-StateResult $result
 }
 
-try { Stop-Process -Name explorer -Force -ErrorAction SilentlyContinue } catch {
-    Write-Log "Explorer restart failed: $($_.Exception.Message)" "WARN"
+if ($explorerChanged) {
+    try { Stop-Process -Name explorer -Force -ErrorAction SilentlyContinue } catch {
+        Write-Log "Explorer restart failed: $($_.Exception.Message)" "WARN"
+    }
 }
 
+if (-not $initialRestoreSucceeded) {
+    $results += New-SetupResult -Id "initial-restore-point" -Name "Initial restore point" `
+        -Status "Failed" -ExitCode 1 -Message "creation failed"
+}
 $failed = @($results | Where-Object { $_.Status -eq "Failed" })
 if ($failed.Count -eq 0) {
     if (-not (New-SetupRestorePoint -Milestone "complete" -Description "win-setup complete")) {
