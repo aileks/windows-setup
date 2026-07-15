@@ -189,10 +189,8 @@ function Copy-WslConfigPayload {
         @{ Source = "configs\wsl\bitwarden-ssh-agent.zsh"; Relative = "wsl\bitwarden-ssh-agent.zsh" }
         @{ Source = "configs\wsl\nvim"; Relative = "nvim" }
         @{ Source = "configs\common\starship\starship.toml"; Relative = "starship\starship.toml" }
-        @{ Source = "configs\wsl\bat"; Relative = "bat" }
-        @{ Source = "configs\common\bat\themes"; Relative = "bat\themes" }
-        @{ Source = "configs\wsl\btop"; Relative = "btop" }
-        @{ Source = "configs\common\btop\themes"; Relative = "btop\themes" }
+        @{ Source = "configs\common\bat"; Relative = "bat" }
+        @{ Source = "configs\common\btop"; Relative = "btop" }
     )
 
     try {
