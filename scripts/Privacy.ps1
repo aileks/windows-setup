@@ -116,7 +116,6 @@ function Invoke-PrivacyTweaks {
         Set-MpPreference -SubmitSamplesConsent 2 -ErrorAction Stop
     } catch {
         Write-Log "Defender samples failed: $($_.Exception.Message)" "WARN"
-        $ok = $false
     }
     [Environment]::SetEnvironmentVariable("POWERSHELL_TELEMETRY_OPTOUT", "1", "Machine")
     Remove-ItemProperty -Path "HKCU:\Software\Microsoft\Siuf\Rules" `
