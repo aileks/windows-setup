@@ -45,7 +45,8 @@
     "single_border": "Base09",
     "stack_border": "Base0B",
     "monocle_border": "Base0D",
-    "unfocused_border": "Base03"
+    "unfocused_border": "Base03",
+    "floating_border": "Base0E",
   },
   "display_index_preferences": {
     "0": "507BNBJ1L485",
