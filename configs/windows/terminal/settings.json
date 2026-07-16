@@ -32,7 +32,7 @@
     "defaults": {
       "colorScheme": "Cinder Grove",
       "useAcrylic": true,
-      "opacity": 85,
+      "opacity": 90,
       "font": {
         "face": "AdwaitaMono Nerd Font Mono",
         "size": 13
